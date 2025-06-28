@@ -42,6 +42,14 @@
             background-color: #2196F3;
         }
 
+        #confirmBookingBtn {
+            background-color: #43c72b;
+        }
+
+        #cancelBookingBtn {
+            background-color: #cc3232;
+        }
+
         #deleteBtn {
             background-color: #f44336;
         }
@@ -50,13 +58,27 @@
             background-color: #d32f2f;
         }
 
+        #confirmDeleteAllBtn {
+            background-color: #43c72b;
+        }
+
+        #cancelDeleteAllBtn {
+            background-color: #cc3232;
+        }
+
         #addBtn {
             background-color: #4CAF50;
         }
 
-        #cancelBtn {
-            background-color: #9E9E9E;
+        #confirmAddTimeslotBtn {
+            background-color: #43c72b;
         }
+
+        #cancelAddTimeslotBtn {
+            background-color: #cc3232;
+        }
+
+
 
         #timeslots {
             margin-top: 20px;
@@ -195,8 +217,8 @@
             <textarea id="notes" rows="3"></textarea>
 
             <div class="button-group">
-                <button type="submit">Confirm Booking</button>
-                <button type="button" id="cancelBtn">Cancel</button>
+                <button type="submit" , id="confirmBookingBtn">Confirm Booking</button>
+                <button id="cancelBookingBtn">Cancel</button>
             </div>
         </form>
     </div>
@@ -231,8 +253,8 @@
                     <textarea id="newNotes" rows="2"></textarea>
                 </div>
                 <div class="modal-buttons">
-                    <button type="submit">Add Timeslot</button>
-                    <button type="button" id="cancelAddTimeslotBtn">Cancel</button>
+                    <button type="submit" , id="confirmAddTimeslotBtn">Add Timeslot</button>
+                    <button id="cancelAddTimeslotBtn">Cancel</button>
                 </div>
             </form>
         </div>
@@ -246,7 +268,7 @@
         const timeslotsDiv = document.getElementById('timeslots');
         const bookingForm = document.getElementById('bookingForm');
         const selectedSlotDisplay = document.getElementById('selectedSlotDisplay');
-        const cancelBtn = document.getElementById('cancelBtn');
+        const cancelBookingBtn = document.getElementById('cancelBookingBtn');
 
         // Modal elements
         const deleteAllModal = document.getElementById('deleteAllModal');
@@ -493,7 +515,7 @@
         });
 
         // Booking form
-        cancelBtn.addEventListener('click', () => {
+        cancelBookingBtn.addEventListener('click', () => {
             bookingForm.classList.add('hidden');
             document.querySelectorAll('.timeslot').forEach(s => {
                 s.classList.remove('selected');

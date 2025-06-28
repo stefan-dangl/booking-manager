@@ -46,6 +46,22 @@
             background-color: #673AB7;
         }
 
+        #confirmBookingBtn {
+            background-color: #43c72b;
+        }
+
+        #cancelBookingBtn {
+            background-color: #cc3232;
+        }
+
+        #submitPasswordBtn {
+            background-color: #43c72b;
+        }
+
+        #cancelPasswordBtn {
+            background-color: #cc3232;
+        }
+
         #timeslots {
             margin-top: 20px;
             display: grid;
@@ -169,8 +185,8 @@
             <textarea id="notes" rows="3"></textarea>
 
             <div class="button-group">
-                <button type="submit" class="submit-btn">Confirm Booking</button>
-                <button type="button" id="cancelBtn">Cancel</button>
+                <button type="submit" , id="confirmBookingBtn">Confirm Booking</button>
+                <button id="cancelBookingBtn">Cancel</button>
             </div>
         </form>
     </div>
@@ -195,7 +211,7 @@
         const timeslotsDiv = document.getElementById('timeslots');
         const bookingForm = document.getElementById('bookingForm');
         const selectedSlotDisplay = document.getElementById('selectedSlotDisplay');
-        const cancelBtn = document.getElementById('cancelBtn');
+        const cancelBookingBtn = document.getElementById('cancelBookingBtn');
 
         // Modal elements
         const passwordModal = document.getElementById('passwordModal');
@@ -330,7 +346,7 @@
         });
 
         // Booking form
-        cancelBtn.addEventListener('click', () => {
+        cancelBookingBtn.addEventListener('click', () => {
             bookingForm.classList.add('hidden');
             document.querySelectorAll('.timeslot').forEach(s => {
                 s.classList.remove('selected');
