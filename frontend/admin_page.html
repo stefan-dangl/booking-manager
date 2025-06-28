@@ -213,9 +213,6 @@
             <label for="name">Your Name:</label>
             <input type="text" id="name" required>
 
-            <label for="notes">Notes:</label>
-            <textarea id="notes" rows="3"></textarea>
-
             <div class="button-group">
                 <button type="submit" , id="confirmBookingBtn">Confirm Booking</button>
                 <button id="cancelBookingBtn">Cancel</button>
@@ -309,6 +306,7 @@
             timeslotsDiv.innerHTML = slots.map(slot => {
                 const slotDate = new Date(slot.datetime);
                 const isAvailable = slot.available;
+                const notes = slot.notes;
 
                 return `
                     <div class="timeslot ${isAvailable ? 'available' : 'booked'}"
@@ -318,7 +316,7 @@
                         <strong>${slotDate.toLocaleDateString()}</strong>
                         <div>${slotDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                         <div>Status: ${isAvailable ? 'Available' : 'Booked'}</div>
-                        ${slot.notes ? `<div>Notes: ${slot.notes}</div>` : ''}
+                        <div>${notes}</div>
                     </div>
                 `;
             }).join('');
@@ -345,7 +343,7 @@
 
                         // Store the selected timeslot
                         selectedTimeslot = slot.dataset;
-                        selectedSlotDisplay.textContent = new Date(selectedTimeslot).toLocaleString();
+                        selectedSlotDisplay.textContent = new Date(selectedTimeslot.datetime).toLocaleString();
 
                         // Enable delete button and show booking form
                         deleteBtn.disabled = false;
@@ -361,12 +359,6 @@
         // Delete selected timeslot
         deleteBtn.addEventListener('click', async () => {
             if (!selectedTimeslot) return;
-
-            console.log("Selected Timeslot Details:", {
-                id: selectedTimeslot.id,
-                formattedDate: new Date(selectedTimeslot.datetime).toLocaleString(),
-                isoString: new Date(selectedTimeslot.datetime).toISOString()
-            });
 
             try {
                 const response = await fetch('http://localhost:3000/remove', {
@@ -397,6 +389,7 @@
 
         // Delete All timeslots
         deleteAllBtn.addEventListener('click', () => {
+            console.log("Cancle Delete all ")
             deleteAllModal.style.display = 'block';
         });
 
@@ -486,8 +479,6 @@
             const datetime = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T` +
                 `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00.${microseconds}${timeZoneString}`;
 
-            console.log("Generated datetime:", datetime);
-
             try {
                 const response = await fetch('http://localhost:3000/add', {
                     method: 'POST',
@@ -517,6 +508,7 @@
         });
 
         cancelAddTimeslotBtn.addEventListener('click', () => {
+            console.log("cancle add timeslot");
             addTimeslotModal.style.display = 'none';
         });
 
@@ -534,7 +526,6 @@
             e.preventDefault();
 
             const name = document.getElementById('name').value;
-            const notes = document.getElementById('notes').value;
 
             if (!selectedTimeslot || !name) {
                 alert('Please select a timeslot and fill in your name');
@@ -548,9 +539,8 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        datetime: selectedTimeslot.datetime,
+                        id: selectedTimeslot.id,
                         client_name: name,
-                        notes: notes
                     }),
                 });
 

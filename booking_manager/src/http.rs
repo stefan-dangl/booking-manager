@@ -16,15 +16,13 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct BookingRequest {
-    datetime: DateTime<Local>,
+    id: Uuid,
     client_name: String,
-    notes: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct BookingResponse {
     message: String,
-    booked_slot: Timeslot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,45 +93,35 @@ pub async fn start_server(state: AppState) {
 async fn get_timeslots(State(state): State<AppState>) -> impl IntoResponse {
     let timeslots = state.timeslot_manager.timeslots();
     let timeslots = timeslots.lock().unwrap();
-    let available_timeslots: Vec<Timeslot> = timeslots
-        .values()
-        .filter(|slot| slot.available)
-        .cloned()
-        .collect();
-    Json(available_timeslots)
+    let timeslot_values: Vec<Timeslot> = timeslots.values().cloned().collect();
+    Json(timeslot_values)
 }
 
 async fn book_timeslot(
     State(state): State<AppState>,
     Json(booking): Json<BookingRequest>,
 ) -> Result<Json<BookingResponse>, (StatusCode, String)> {
-    let timeslots = state.timeslot_manager.timeslots();
-    let mut timeslots = timeslots.lock().unwrap();
+    let response_message = match state
+        .timeslot_manager
+        .book_timeslot(booking.id, booking.client_name)
+    {
+        Ok(()) => "success".into(),
+        Err(err) => err,
+    };
 
-    // Find the first available slot that matches the requested datetime
-    let slot = timeslots
-        .values_mut()
-        .find(|slot| slot.available && slot.datetime == booking.datetime)
-        .ok_or_else(|| {
-            (
-                StatusCode::NOT_FOUND,
-                "No available timeslot found for the requested datetime".to_string(),
-            )
-        })?;
-
-    slot.available = false;
-
-    Ok(Json(BookingResponse {
-        message: format!("Successfully booked timeslot for {}", booking.client_name),
-        booked_slot: slot.clone(),
-    }))
+    Ok(BookingResponse {
+        message: response_message,
+    }
+    .into())
 }
 
 async fn add_timeslot(
     State(state): State<AppState>,
     Json(timeslot): Json<AddTimeslotRequest>,
 ) -> Result<Json<AddTimeslotResponse>, (StatusCode, String)> {
-    state.timeslot_manager.add_timeslot(timeslot.datetime);
+    state
+        .timeslot_manager
+        .add_timeslot(timeslot.datetime, timeslot.notes);
 
     Ok(AddTimeslotResponse {
         message: "done".into(),
