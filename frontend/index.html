@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeslot Booking System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 15px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        #refreshBtn {
+            background-color: #2196F3;
+        }
+
+        #adminBtn {
+            background-color: #673AB7;
+        }
+
+        #timeslots {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 10px;
+        }
+
+        .timeslot {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .timeslot:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .available {
+            background-color: #e8f5e9;
+        }
+
+        .booked {
+            background-color: #ffebee;
+            cursor: not-allowed;
+        }
+
+        .selected {
+            background-color: #bbdefb;
+            border: 2px solid #2196F3;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        input,
+        textarea {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .selected-timeslot {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 5px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Timeslot Booking System</h1>
+
+        <div class="button-group">
+            <button id="refreshBtn">Refresh Timeslots</button>
+            <button id="adminBtn">Admin</button>
+        </div>
+
+        <div id="timeslots"></div>
+
+        <form id="bookingForm" class="hidden">
+            <h2>Book a Timeslot</h2>
+
+            <div class="selected-timeslot">
+                <strong>Selected Timeslot:</strong>
+                <span id="selectedSlotDisplay"></span>
+                <input type="hidden" id="datetime" required>
+            </div>
+
+            <label for="name">Your Name:</label>
+            <input type="text" id="name" required>
+
+            <label for="notes">Notes:</label>
+            <textarea id="notes" rows="3"></textarea>
+
+            <div class="button-group">
+                <button type="submit" class="submit-btn">Confirm Booking</button>
+                <button type="button" id="cancelBtn">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <h2>Admin Access</h2>
+            <p>Please enter admin password:</p>
+            <input type="password" id="adminPassword" placeholder="Password"
+                style="width: 100%; padding: 8px; margin: 10px 0;">
+            <div class="modal-buttons">
+                <button id="submitPasswordBtn">Submit</button>
+                <button id="cancelPasswordBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const refreshBtn = document.getElementById('refreshBtn');
+        const adminBtn = document.getElementById('adminBtn');
+        const timeslotsDiv = document.getElementById('timeslots');
+        const bookingForm = document.getElementById('bookingForm');
+        const selectedSlotDisplay = document.getElementById('selectedSlotDisplay');
+        const cancelBtn = document.getElementById('cancelBtn');
+
+        // Modal elements
+        const passwordModal = document.getElementById('passwordModal');
+        const adminPassword = document.getElementById('adminPassword');
+        const submitPasswordBtn = document.getElementById('submitPasswordBtn');
+        const cancelPasswordBtn = document.getElementById('cancelPasswordBtn');
+
+        let selectedTimeslot = null;
+
+        // Load available timeslots on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshTimeslots();
+        });
+
+        // Main refresh function
+        async function refreshTimeslots() {
+            try {
+                const response = await fetch('http://localhost:3000/timeslots');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch timeslots');
+                }
+                const slots = await response.json();
+                displayTimeslots(slots);
+            } catch (error) {
+                timeslotsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function displayTimeslots(slots) {
+            if (slots.length === 0) {
+                timeslotsDiv.innerHTML = '<div>No timeslots available</div>';
+                return;
+            }
+
+            timeslotsDiv.innerHTML = slots.map(slot => {
+                const slotDate = new Date(slot.datetime);
+                const isAvailable = slot.available;
+
+                return `
+                    <div class="timeslot ${isAvailable ? 'available' : 'booked'}"
+                         data-datetime="${slot.datetime}"
+                         data-available="${isAvailable}">
+                        <strong>${slotDate.toLocaleDateString()}</strong>
+                        <div>${slotDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div>Status: ${isAvailable ? 'Available' : 'Booked'}</div>
+                    </div>
+                `;
+            }).join('');
+
+            // Add click event listeners to timeslots
+            document.querySelectorAll('.timeslot.available').forEach(slot => {
+                slot.addEventListener('click', () => {
+                    // Remove previous selection
+                    document.querySelectorAll('.timeslot').forEach(s => {
+                        s.classList.remove('selected');
+                    });
+
+                    // Add selection to clicked slot
+                    slot.classList.add('selected');
+
+                    // Store the selected timeslot
+                    selectedTimeslot = slot.dataset.datetime;
+                    selectedSlotDisplay.textContent = new Date(selectedTimeslot).toLocaleString();
+
+                    // Show the booking form
+                    bookingForm.classList.remove('hidden');
+                });
+            });
+        }
+
+        // Refresh button
+        refreshBtn.addEventListener('click', refreshTimeslots);
+
+        // Admin button - show password modal
+        adminBtn.addEventListener('click', () => {
+            passwordModal.style.display = 'block';
+            adminPassword.focus();
+        });
+
+        // Submit password
+        submitPasswordBtn.addEventListener('click', async () => {
+            const password = adminPassword.value.trim();
+
+            if (!password) {
+                alert('Please enter a password');
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:3000/admin_page', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error('Invalid password or access denied');
+                }
+
+                // If successful, the server should return the admin page HTML
+                const adminPageHtml = await response.text();
+
+                // Create a new window or tab with the admin page
+                const newWindow = window.open('', '_blank');
+                newWindow.document.write(adminPageHtml);
+                newWindow.document.close();
+
+                // Close the modal
+                passwordModal.style.display = 'none';
+                adminPassword.value = '';
+
+            } catch (error) {
+                alert(`Admin access error: ${error.message}`);
+                passwordModal.style.display = 'none';
+                adminPassword.value = '';
+            }
+        });
+
+        // Cancel password entry
+        cancelPasswordBtn.addEventListener('click', () => {
+            passwordModal.style.display = 'none';
+            adminPassword.value = '';
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', (event) => {
+            if (event.target === passwordModal) {
+                passwordModal.style.display = 'none';
+                adminPassword.value = '';
+            }
+        });
+
+        // Booking form
+        cancelBtn.addEventListener('click', () => {
+            bookingForm.classList.add('hidden');
+            document.querySelectorAll('.timeslot').forEach(s => {
+                s.classList.remove('selected');
+            });
+            selectedTimeslot = null;
+        });
+
+        bookingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const notes = document.getElementById('notes').value;
+
+            if (!selectedTimeslot || !name) {
+                alert('Please select a timeslot and fill in your name');
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:3000/book', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        datetime: selectedTimeslot,
+                        client_name: name,
+                        notes: notes
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Booking failed');
+                }
+
+                const result = await response.json();
+                alert(result.message);
+
+                // Reset form and refresh timeslots
+                bookingForm.reset();
+                bookingForm.classList.add('hidden');
+                selectedTimeslot = null;
+                refreshTimeslots();
+            } catch (error) {
+                alert(`Booking error: ${error.message}`);
+            }
+        });
+    </script>
+</body>
+
+</html>
