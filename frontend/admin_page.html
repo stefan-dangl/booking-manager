@@ -344,7 +344,7 @@
                         slot.classList.add('selected');
 
                         // Store the selected timeslot
-                        selectedTimeslot = slot.dataset.datetime;
+                        selectedTimeslot = slot.dataset;
                         selectedSlotDisplay.textContent = new Date(selectedTimeslot).toLocaleString();
 
                         // Enable delete button and show booking form
@@ -362,6 +362,12 @@
         deleteBtn.addEventListener('click', async () => {
             if (!selectedTimeslot) return;
 
+            console.log("Selected Timeslot Details:", {
+                id: selectedTimeslot.id,
+                formattedDate: new Date(selectedTimeslot.datetime).toLocaleString(),
+                isoString: new Date(selectedTimeslot.datetime).toISOString()
+            });
+
             try {
                 const response = await fetch('http://localhost:3000/remove', {
                     method: 'POST',
@@ -369,7 +375,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        datetime: selectedTimeslot
+                        id: selectedTimeslot.id
                     }),
                 });
 
@@ -542,7 +548,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        datetime: selectedTimeslot,
+                        datetime: selectedTimeslot.datetime,
                         client_name: name,
                         notes: notes
                     }),

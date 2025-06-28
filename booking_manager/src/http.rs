@@ -29,7 +29,7 @@ struct BookingResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DeleteTimeslotRequest {
-    datetime: DateTime<Local>,
+    id: Uuid,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -145,10 +145,7 @@ async fn remove_timeslot(
     State(state): State<AppState>,
     Json(timeslot): Json<DeleteTimeslotRequest>,
 ) -> Result<Json<DeleteTimeslotResponse>, (StatusCode, String)> {
-    println!("remove timeslot called");
-
-    let id = Uuid::new_v4();
-    let response_message = match state.timeslot_manager.remove_timeslot(id) {
+    let response_message = match state.timeslot_manager.remove_timeslot(timeslot.id) {
         Ok(()) => "success".into(),
         Err(err) => err,
     };

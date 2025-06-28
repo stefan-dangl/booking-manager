@@ -46,7 +46,7 @@ impl TimeslotManager {
 
     pub fn remove_timeslot(&self, id: Uuid) -> Result<(), String> {
         let mut timeslots = self.timeslots.lock().unwrap();
-        if let None = timeslots.get_mut(&id).take() {
+        if timeslots.remove(&id).is_none() {
             return Err("Timeslot does not exist and can't therefore not be removed".into());
         }
         Ok(())
