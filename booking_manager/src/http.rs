@@ -1,8 +1,9 @@
-use std::path::Path;
-
 use crate::timeslot_manager::Timeslot;
 use crate::AppState;
-use axum::response::Html;
+use axum::body::Body;
+use axum::extract::Request;
+use axum::middleware::{self, Next};
+use axum::response::{Html, Response};
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum::{
     routing::{get, post},
@@ -10,6 +11,7 @@ use axum::{
 };
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use tokio::fs;
 use tower_http::cors::{Any, CorsLayer};
 use uuid::Uuid;
@@ -59,34 +61,48 @@ struct AdminRequest {
     password: String,
 }
 
+async fn admin_auth(request: Request<Body>, next: Next) -> Result<Response, (StatusCode, String)> {
+    // TODO: Read from env variable
+    // const ADMIN_PASSWORD: &str = std::env::var("ADMIN_PASSWORD").expect("ADMIN_PASSWORD must be set");
+    const ADMIN_PASSWORD: &str = "123";
+
+    if let Some(auth_header) = request.headers().get("x-admin-password") {
+        if auth_header.to_str().unwrap_or("") != ADMIN_PASSWORD {
+            return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+        }
+    } else {
+        return Err((StatusCode::UNAUTHORIZED, "Missing credentials".to_string()));
+    }
+    Ok(next.run(request).await)
+}
+
 pub async fn start_server(state: AppState) {
-    // Set up CORS
-    // ODO: In production, you'd specify exact domains like .allow_origin("https://yourdomain.com".parse().unwrap())
     let cors = CorsLayer::new()
         .allow_origin(Any)
-        .allow_methods(Any) // Permits all HTTP methods (GET, POST, etc.)
-        .allow_headers(Any); // Accepts all request headers
+        .allow_methods(Any)
+        .allow_headers(Any);
 
-    let app = Router::new()
+    let public = Router::new()
         .route("/frontend", get(get_frontend))
-        .route("/admin_page", get(get_admin_page))
         .route("/timeslots", get(get_timeslots))
+        .route("/book", post(book_timeslot));
+
+    let admin = Router::new()
+        .route("/admin_page", get(get_admin_page))
         .route("/add", post(add_timeslot))
-        .route("/book", post(book_timeslot))
         .route("/remove", post(remove_timeslot))
         .route("/remove_all", post(remove_all_timeslot))
+        .route_layer(middleware::from_fn(admin_auth));
+
+    let app = Router::new()
+        .merge(public)
+        .merge(admin)
         .with_state(state)
         .layer(cors);
 
-    // TODO: Read from config file
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
-    println!(
-        // TODO: Use proper logging
-        "Server running on http://{}",
-        listener.local_addr().unwrap()
-    );
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -133,6 +149,8 @@ async fn remove_timeslot(
     State(state): State<AppState>,
     Json(timeslot): Json<DeleteTimeslotRequest>,
 ) -> Result<Json<DeleteTimeslotResponse>, (StatusCode, String)> {
+    println!("timeslot: {timeslot:?}");
+
     let response_message = match state.timeslot_manager.remove_timeslot(timeslot.id) {
         Ok(()) => "success".into(),
         Err(err) => err,
@@ -174,18 +192,7 @@ async fn get_frontend() -> Result<Html<String>, (StatusCode, String)> {
     }
 }
 
-async fn get_admin_page() -> Result<Html<String>, (StatusCode, String)> {
+async fn get_admin_page() -> impl IntoResponse {
     println!("get admin_page called");
-
-    // Construct the path to the frontend file
-    let path = Path::new("../frontend/admin_page.html");
-
-    // Read the file asynchronously
-    match fs::read_to_string(path).await {
-        Ok(contents) => Ok(Html(contents)),
-        Err(e) => {
-            let error_message = format!("Failed to read frontend file: {}", e);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, error_message))
-        }
-    }
+    StatusCode::OK
 }
