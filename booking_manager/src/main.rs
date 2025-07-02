@@ -1,11 +1,13 @@
-use crate::{http::start_server, timeslot_manager::TimeslotManager};
+use crate::{backend::TimeslotBackend, http::start_server, timeslot_manager::TimeslotManager};
 
+mod backend;
 mod http;
 mod timeslot_manager;
+mod types;
 
 #[derive(Clone)]
-struct AppState {
-    timeslot_manager: TimeslotManager,
+struct AppState<T: TimeslotBackend> {
+    timeslot_manager: T,
 }
 
 #[tokio::main]

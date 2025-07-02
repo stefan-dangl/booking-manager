@@ -1,4 +1,5 @@
-use crate::timeslot_manager::Timeslot;
+use crate::backend::TimeslotBackend;
+use crate::types::Timeslot;
 use crate::AppState;
 use axum::body::Body;
 use axum::extract::Request;
@@ -56,27 +57,7 @@ struct DeleteAllTimeslotsResponse {
     message: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct AdminRequest {
-    password: String,
-}
-
-async fn admin_auth(request: Request<Body>, next: Next) -> Result<Response, (StatusCode, String)> {
-    // TODO: Read from env variable
-    // const ADMIN_PASSWORD: &str = std::env::var("ADMIN_PASSWORD").expect("ADMIN_PASSWORD must be set");
-    const ADMIN_PASSWORD: &str = "123";
-
-    if let Some(auth_header) = request.headers().get("x-admin-password") {
-        if auth_header.to_str().unwrap_or("") != ADMIN_PASSWORD {
-            return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
-        }
-    } else {
-        return Err((StatusCode::UNAUTHORIZED, "Missing credentials".to_string()));
-    }
-    Ok(next.run(request).await)
-}
-
-pub async fn start_server(state: AppState) {
+pub async fn start_server<T: TimeslotBackend>(state: AppState<T>) {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -106,15 +87,30 @@ pub async fn start_server(state: AppState) {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn get_timeslots(State(state): State<AppState>) -> impl IntoResponse {
+async fn admin_auth(request: Request<Body>, next: Next) -> Result<Response, (StatusCode, String)> {
+    // TODO: Read from env variable
+    // const ADMIN_PASSWORD: &str = std::env::var("ADMIN_PASSWORD").expect("ADMIN_PASSWORD must be set");
+    const ADMIN_PASSWORD: &str = "123";
+
+    if let Some(auth_header) = request.headers().get("x-admin-password") {
+        if auth_header.to_str().unwrap_or("") != ADMIN_PASSWORD {
+            return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+        }
+    } else {
+        return Err((StatusCode::UNAUTHORIZED, "Missing credentials".to_string()));
+    }
+    Ok(next.run(request).await)
+}
+
+async fn get_timeslots<T: TimeslotBackend>(State(state): State<AppState<T>>) -> impl IntoResponse {
     let timeslots = state.timeslot_manager.timeslots();
     let timeslots = timeslots.lock().unwrap();
     let timeslot_values: Vec<Timeslot> = timeslots.values().cloned().collect();
     Json(timeslot_values)
 }
 
-async fn book_timeslot(
-    State(state): State<AppState>,
+async fn book_timeslot<T: TimeslotBackend>(
+    State(state): State<AppState<T>>,
     Json(booking): Json<BookingRequest>,
 ) -> Result<Json<BookingResponse>, (StatusCode, String)> {
     let response_message = match state
@@ -131,8 +127,8 @@ async fn book_timeslot(
     .into())
 }
 
-async fn add_timeslot(
-    State(state): State<AppState>,
+async fn add_timeslot<T: TimeslotBackend>(
+    State(state): State<AppState<T>>,
     Json(timeslot): Json<AddTimeslotRequest>,
 ) -> Result<Json<AddTimeslotResponse>, (StatusCode, String)> {
     state
@@ -145,8 +141,8 @@ async fn add_timeslot(
     .into())
 }
 
-async fn remove_timeslot(
-    State(state): State<AppState>,
+async fn remove_timeslot<T: TimeslotBackend>(
+    State(state): State<AppState<T>>,
     Json(timeslot): Json<DeleteTimeslotRequest>,
 ) -> Result<Json<DeleteTimeslotResponse>, (StatusCode, String)> {
     println!("timeslot: {timeslot:?}");
@@ -162,8 +158,8 @@ async fn remove_timeslot(
     .into())
 }
 
-async fn remove_all_timeslot(
-    State(state): State<AppState>,
+async fn remove_all_timeslot<T: TimeslotBackend>(
+    State(state): State<AppState<T>>,
     Json(booking): Json<DeleteAllTimeslotsRequest>,
 ) -> Result<Json<DeleteAllTimeslotsResponse>, (StatusCode, String)> {
     println!("remove all timeslots called");
