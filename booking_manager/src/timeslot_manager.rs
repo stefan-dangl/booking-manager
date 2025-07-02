@@ -16,7 +16,7 @@ pub struct Timeslot {
     pub id: Uuid,
     pub datetime: DateTime<Local>,
     pub available: bool,
-    pub booker_name: Option<String>,
+    pub booker_name: String,
     pub notes: String,
 }
 
@@ -33,12 +33,12 @@ impl TimeslotManager {
         self.timeslots.clone()
     }
 
-    pub fn book_timeslot(&self, id: Uuid, client_name: String) -> Result<(), String> {
+    pub fn book_timeslot(&self, id: Uuid, booker_name: String) -> Result<(), String> {
         let mut timeslots = self.timeslots.lock().unwrap();
         match timeslots.get_mut(&id) {
             Some(timeslot) => {
                 timeslot.available = false;
-                timeslot.booker_name = Some(client_name)
+                timeslot.booker_name = booker_name
             }
             None => return Err("Timeslot does not exist and can't therefore not be booked".into()),
         }
@@ -54,7 +54,7 @@ impl TimeslotManager {
                 id,
                 datetime,
                 available: true,
-                booker_name: None,
+                booker_name: String::new(),
                 notes,
             },
         );

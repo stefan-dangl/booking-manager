@@ -355,6 +355,7 @@
                 const slotDate = new Date(slot.datetime);
                 const isAvailable = slot.available;
                 const notes = slot.notes;
+                const booker_name = slot.booker_name;
 
                 return `
                     <div class="timeslot ${isAvailable ? 'available' : 'booked'}"
@@ -363,8 +364,8 @@
                          data-id="${slot.id || ''}">
                         <strong>${slotDate.toLocaleDateString()}</strong>
                         <div>${slotDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                        <div>Status: ${isAvailable ? 'Available' : 'Booked'}</div>
                         <div>${notes}</div>
+                        <div>${isAvailable ? 'Available' : 'Booked by ' + booker_name}</div>
                     </div>
                 `;
             }).join('');
