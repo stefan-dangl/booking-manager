@@ -20,8 +20,8 @@ impl TimeslotBackend for TimeslotManager {
         }
     }
 
-    fn timeslots(&self) -> Arc<Mutex<HashMap<Uuid, Timeslot>>> {
-        self.timeslots.clone()
+    fn timeslots(&self) -> HashMap<Uuid, Timeslot> {
+        self.timeslots.lock().unwrap().clone()
     }
 
     fn book_timeslot(&self, id: Uuid, booker_name: String) -> Result<(), String> {
@@ -40,7 +40,10 @@ impl TimeslotBackend for TimeslotManager {
     }
 
     fn add_timeslot(&self, datetime: DateTime<Local>, notes: String) {
+        println!("ACTUAL BACKEND CALLED");
+
         let id = Uuid::new_v4();
+        // TODO_SD: Check if id is not yet in HashMap
         let mut timeslots = self.timeslots.lock().unwrap();
         timeslots.insert(
             id,

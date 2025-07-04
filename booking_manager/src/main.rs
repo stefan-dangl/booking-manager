@@ -2,6 +2,8 @@ use crate::{backend::TimeslotBackend, http::start_server, timeslot_manager::Time
 
 mod backend;
 mod http;
+#[cfg(test)]
+mod testutils;
 mod timeslot_manager;
 mod types;
 
