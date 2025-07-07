@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
@@ -8,7 +9,7 @@ use std::{
 
 use uuid::Uuid;
 
-use crate::{backend::TimeslotBackend, types::Timeslot};
+use crate::{backend::TimeslotBackend, configuration::Configuration, types::Timeslot};
 
 pub struct MockTimeslotBackendInner {
     pub success: AtomicBool,
@@ -84,5 +85,38 @@ impl TimeslotBackend for MockTimeslotBackend {
         self.0
             .calls_to_remove_all_timeslot
             .fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+pub struct MockConfigurationInner {
+    pub password: Mutex<String>,
+    pub frontend_path: Mutex<PathBuf>,
+}
+
+impl MockConfigurationInner {
+    fn new() -> Self {
+        Self {
+            password: Mutex::default(),
+            frontend_path: Mutex::new(PathBuf::new()),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct MockConfiguration(pub Arc<MockConfigurationInner>);
+
+impl MockConfiguration {
+    pub fn new() -> Self {
+        Self(Arc::new(MockConfigurationInner::new()))
+    }
+}
+
+impl Configuration for MockConfiguration {
+    fn password(&self) -> String {
+        self.0.password.lock().unwrap().clone()
+    }
+
+    fn frontend_path(&self) -> PathBuf {
+        self.0.frontend_path.lock().unwrap().clone()
     }
 }

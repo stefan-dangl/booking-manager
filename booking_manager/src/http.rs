@@ -1,4 +1,5 @@
 use crate::backend::TimeslotBackend;
+use crate::configuration::Configuration;
 use crate::types::Timeslot;
 use crate::AppState;
 use axum::body::Body;
@@ -12,7 +13,6 @@ use axum::{
 };
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 use tokio::fs;
 use tower_http::cors::{Any, CorsLayer};
 use uuid::Uuid;
@@ -34,7 +34,7 @@ struct AddTimeslotRequest {
     notes: String,
 }
 
-pub async fn start_server<T: TimeslotBackend>(state: AppState<T>) {
+pub async fn start_server<T: TimeslotBackend, S: Configuration>(state: AppState<T, S>) {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -50,7 +50,7 @@ pub async fn start_server<T: TimeslotBackend>(state: AppState<T>) {
         .route("/add", post(add_timeslot))
         .route("/remove", post(remove_timeslot))
         .route("/remove_all", post(remove_all_timeslot))
-        .route_layer(middleware::from_fn(admin_auth));
+        .route_layer(middleware::from_fn_with_state(state.clone(), admin_auth));
 
     let app = Router::new()
         .merge(public)
@@ -64,13 +64,15 @@ pub async fn start_server<T: TimeslotBackend>(state: AppState<T>) {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn admin_auth(request: Request<Body>, next: Next) -> Result<Response, (StatusCode, String)> {
-    // TODO: Read from env variable
-    // const ADMIN_PASSWORD: &str = std::env::var("ADMIN_PASSWORD").expect("ADMIN_PASSWORD must be set");
-    const ADMIN_PASSWORD: &str = "123";
+async fn admin_auth<T: TimeslotBackend, S: Configuration>(
+    State(state): State<AppState<T, S>>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response, (StatusCode, String)> {
+    let password = state.configuration_handler.password();
 
     if let Some(auth_header) = request.headers().get("x-admin-password") {
-        if auth_header.to_str().unwrap_or("") != ADMIN_PASSWORD {
+        if auth_header.to_str().unwrap_or("") != password {
             return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
         }
     } else {
@@ -79,7 +81,9 @@ async fn admin_auth(request: Request<Body>, next: Next) -> Result<Response, (Sta
     Ok(next.run(request).await)
 }
 
-async fn get_timeslots<T: TimeslotBackend>(State(state): State<AppState<T>>) -> impl IntoResponse {
+async fn get_timeslots<T: TimeslotBackend, S: Configuration>(
+    State(state): State<AppState<T, S>>,
+) -> impl IntoResponse {
     let timeslot_values: Vec<Timeslot> = state
         .timeslot_manager
         .timeslots()
@@ -89,8 +93,8 @@ async fn get_timeslots<T: TimeslotBackend>(State(state): State<AppState<T>>) -> 
     Json(timeslot_values)
 }
 
-async fn book_timeslot<T: TimeslotBackend>(
-    State(state): State<AppState<T>>,
+async fn book_timeslot<T: TimeslotBackend, S: Configuration>(
+    State(state): State<AppState<T, S>>,
     Json(booking): Json<BookingRequest>,
 ) -> impl IntoResponse {
     match state
@@ -102,8 +106,8 @@ async fn book_timeslot<T: TimeslotBackend>(
     }
 }
 
-async fn add_timeslot<T: TimeslotBackend>(
-    State(state): State<AppState<T>>,
+async fn add_timeslot<T: TimeslotBackend, S: Configuration>(
+    State(state): State<AppState<T, S>>,
     Json(timeslot): Json<AddTimeslotRequest>,
 ) -> impl IntoResponse {
     state
@@ -113,8 +117,8 @@ async fn add_timeslot<T: TimeslotBackend>(
     (StatusCode::OK, "Timeslot added successfully".to_string())
 }
 
-async fn remove_timeslot<T: TimeslotBackend>(
-    State(state): State<AppState<T>>,
+async fn remove_timeslot<T: TimeslotBackend, S: Configuration>(
+    State(state): State<AppState<T, S>>,
     Json(timeslot): Json<DeleteTimeslotRequest>,
 ) -> impl IntoResponse {
     match state.timeslot_manager.remove_timeslot(timeslot.id) {
@@ -123,8 +127,8 @@ async fn remove_timeslot<T: TimeslotBackend>(
     }
 }
 
-async fn remove_all_timeslot<T: TimeslotBackend>(
-    State(state): State<AppState<T>>,
+async fn remove_all_timeslot<T: TimeslotBackend, S: Configuration>(
+    State(state): State<AppState<T, S>>,
 ) -> impl IntoResponse {
     state.timeslot_manager.remove_all_timeslot();
     (
@@ -133,13 +137,11 @@ async fn remove_all_timeslot<T: TimeslotBackend>(
     )
 }
 
-async fn get_frontend() -> Result<Html<String>, (StatusCode, String)> {
-    println!("get frontend called");
+async fn get_frontend<T: TimeslotBackend, S: Configuration>(
+    State(state): State<AppState<T, S>>,
+) -> Result<Html<String>, (StatusCode, String)> {
+    let path = state.configuration_handler.frontend_path();
 
-    // Construct the path to the frontend file
-    let path = Path::new("../frontend/index.html");
-
-    // Read the file asynchronously
     match fs::read_to_string(path).await {
         Ok(contents) => Ok(Html(contents)),
         Err(e) => {
@@ -157,12 +159,14 @@ async fn get_admin_page() -> impl IntoResponse {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::testutils::MockTimeslotBackend;
+    use crate::testutils::{MockConfiguration, MockTimeslotBackend};
     use axum::http::{response, StatusCode};
     use chrono::Local;
     use mockall::predicate::*;
     use reqwest::Client;
-    use std::{collections::HashMap, sync::atomic::Ordering, time::Duration};
+    use std::io::Write;
+    use std::{collections::HashMap, path::PathBuf, sync::atomic::Ordering, time::Duration};
+    use tempfile::NamedTempFile;
     use tokio::{task::JoinHandle, time::sleep};
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -205,12 +209,18 @@ mod test {
         }
     }
 
-    fn init() -> (JoinHandle<()>, MockTimeslotBackend) {
+    fn init() -> (JoinHandle<()>, MockTimeslotBackend, MockConfiguration) {
         let mock_backend = MockTimeslotBackend::new();
+        let mock_configuration = MockConfiguration::new();
         let state = AppState {
             timeslot_manager: mock_backend.clone(),
+            configuration_handler: mock_configuration.clone(),
         };
-        (tokio::spawn(start_server(state)), mock_backend)
+        (
+            tokio::spawn(start_server(state)),
+            mock_backend,
+            mock_configuration,
+        )
     }
 
     #[test_case::test_case ("book", BookingRequest { id: Uuid::new_v4(), client_name: String::from("Stefan") }, true)]
@@ -224,7 +234,9 @@ mod test {
     where
         T: Serialize,
     {
-        let (server, mock_backend) = init();
+        let (server, mock_backend, mock_configuration) = init();
+        let password = String::from("123");
+        *mock_configuration.0.password.lock().unwrap() = password.clone();
         mock_backend
             .0
             .success
@@ -233,7 +245,7 @@ mod test {
         let client = Client::new();
         let response = client
             .post(format!("http://localhost:3000/{path}"))
-            .header("x-admin-password", "123") // TODO_SD: authenticate every request
+            .header("x-admin-password", password)
             .json(&request)
             .send()
             .await
@@ -252,27 +264,39 @@ mod test {
         server.abort();
     }
 
-    #[test_case::test_case ("post", "book", BookingRequest { id: Uuid::new_v4(), client_name: String::from("Stefan") }, false, 1, StatusCode::OK)]
-    #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Local::now(), notes: String::from("Example Notes") }, false, 0, StatusCode::UNAUTHORIZED)]
-    #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Local::now(), notes: String::from("Example Notes") }, true, 1, StatusCode::OK)]
-    #[test_case::test_case ("post", "remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, false, 0, StatusCode::UNAUTHORIZED)]
-    #[test_case::test_case ("post", "remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, true, 1, StatusCode::OK)]
-    #[test_case::test_case ("post", "remove_all", EmptyRequest {  }, false, 0, StatusCode::UNAUTHORIZED)]
-    #[test_case::test_case ("post", "remove_all", EmptyRequest {  }, true, 1, StatusCode::OK)]
-    #[test_case::test_case ("get", "admin_page", EmptyRequest {  }, false, 0, StatusCode::UNAUTHORIZED)]
-    #[test_case::test_case ("get", "admin_page", EmptyRequest {  }, true, 0,StatusCode::OK)]
+    enum Authorization {
+        None,
+        Invalid,
+        Valid,
+    }
+
+    #[test_case::test_case ("post", "book", BookingRequest { id: Uuid::new_v4(), client_name: String::from("Stefan") }, Authorization::None, 1, StatusCode::OK)]
+    #[test_case::test_case ("post", "book", BookingRequest { id: Uuid::new_v4(), client_name: String::from("Stefan") }, Authorization::Invalid, 1, StatusCode::OK)]
+    #[test_case::test_case ("post", "book", BookingRequest { id: Uuid::new_v4(), client_name: String::from("Stefan") }, Authorization::Valid, 1, StatusCode::OK)]
+    #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Local::now(), notes: String::from("Example Notes") }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
+    #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Local::now(), notes: String::from("Example Notes") }, Authorization::Invalid, 0, StatusCode::UNAUTHORIZED)]
+    #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Local::now(), notes: String::from("Example Notes") }, Authorization::Valid, 1, StatusCode::OK)]
+    #[test_case::test_case ("post", "remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
+    #[test_case::test_case ("post", "remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, Authorization::Valid, 1, StatusCode::OK)]
+    #[test_case::test_case ("post", "remove_all", EmptyRequest {  }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
+    #[test_case::test_case ("post", "remove_all", EmptyRequest {  }, Authorization::Valid, 1, StatusCode::OK)]
+    #[test_case::test_case ("get", "admin_page", EmptyRequest {  }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
+    #[test_case::test_case ("get", "admin_page", EmptyRequest {  }, Authorization::Valid, 0,StatusCode::OK)]
     #[tokio::test]
     async fn test_authorization<T>(
         method: &str,
         path: &str,
         request: T,
-        authorized: bool,
+        authorization: Authorization,
         expected_backend_calls: u64,
         status_code: StatusCode,
     ) where
         T: Serialize,
     {
-        let (server, mock_backend) = init();
+        let (server, mock_backend, mock_configuration) = init();
+        let password = String::from("123");
+        let wrong_password = String::from("xyz");
+        *mock_configuration.0.password.lock().unwrap() = password.clone();
 
         let client = Client::new();
         let mut request_builder = match method.to_lowercase().as_str() {
@@ -282,9 +306,11 @@ mod test {
             "delete" => client.delete(format!("http://localhost:3000/{path}")), // TODO_SD: Make Remove requests delete instead of post?
             _ => panic!("Unsupported HTTP method: {}", method),
         };
-        if authorized {
-            request_builder = request_builder.header("x-admin-password", "123");
-        }
+        request_builder = match authorization {
+            Authorization::None => request_builder,
+            Authorization::Invalid => request_builder.header("x-admin-password", wrong_password),
+            Authorization::Valid => request_builder.header("x-admin-password", password),
+        };
         let response = request_builder.json(&request).send().await.unwrap();
 
         assert_eq!(response.status(), status_code.as_u16());
@@ -294,7 +320,16 @@ mod test {
 
     #[tokio::test]
     async fn test_get_frontend() {
-        let (server, _) = init();
+        let (server, _, mock_configuration) = init();
+
+        let mut tmp_file = NamedTempFile::new().unwrap();
+        let expected_html = r#"<!DOCTYPE html>
+<html>
+<head><title>Test</title></head>
+<body><h1>Test</h1></body>
+</html>"#;
+        write!(tmp_file, "{}", expected_html).unwrap();
+        *mock_configuration.0.frontend_path.lock().unwrap() = tmp_file.path().to_path_buf();
 
         let client = Client::new();
         let response = client
@@ -314,16 +349,15 @@ mod test {
             "text/html; charset=utf-8"
         );
 
-        // TODO: Check html content
-        let html_content = response.text().await.unwrap();
-        println!("Received HTML content:\n{}", html_content);
+        let actual_html = response.text().await.unwrap();
+        assert_eq!(actual_html, expected_html);
 
         server.abort();
     }
 
     #[tokio::test]
     async fn test_get_timeslots() {
-        let (server, mock_backend) = init();
+        let (server, mock_backend, _) = init();
 
         let timeslot_1 = Timeslot {
             id: Uuid::new_v4(),
