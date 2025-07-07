@@ -1,6 +1,6 @@
 use crate::{
     backend::TimeslotBackend, configuration::Configuration,
-    configuration_handler::ConfigurationHandler, http::start_server,
+    configuration_handler::ConfigurationHandler, http::create_app,
     timeslot_manager::TimeslotManager,
 };
 
@@ -28,5 +28,10 @@ async fn main() {
         configuration_handler,
     };
     state.timeslot_manager.insert_example_timeslots();
-    start_server(state).await;
+    let app = create_app(state);
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+        .await
+        .unwrap();
+    axum::serve(listener, app).await.unwrap();
 }

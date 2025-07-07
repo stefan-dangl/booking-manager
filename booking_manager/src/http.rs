@@ -34,7 +34,7 @@ struct AddTimeslotRequest {
     notes: String,
 }
 
-pub async fn start_server<T: TimeslotBackend, S: Configuration>(state: AppState<T, S>) {
+pub fn create_app<T: TimeslotBackend, S: Configuration>(state: AppState<T, S>) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -52,16 +52,11 @@ pub async fn start_server<T: TimeslotBackend, S: Configuration>(state: AppState<
         .route("/remove_all", post(remove_all_timeslot))
         .route_layer(middleware::from_fn_with_state(state.clone(), admin_auth));
 
-    let app = Router::new()
+    Router::new()
         .merge(public)
         .merge(admin)
         .with_state(state)
-        .layer(cors);
-
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
-    axum::serve(listener, app).await.unwrap();
+        .layer(cors)
 }
 
 async fn admin_auth<T: TimeslotBackend, S: Configuration>(
@@ -161,12 +156,15 @@ mod test {
     use super::*;
     use crate::testutils::{MockConfiguration, MockTimeslotBackend};
     use axum::http::{response, StatusCode};
+    use axum::serve::Serve;
     use chrono::Local;
     use mockall::predicate::*;
     use reqwest::Client;
     use std::io::Write;
+    use std::net::SocketAddr;
     use std::{collections::HashMap, path::PathBuf, sync::atomic::Ordering, time::Duration};
     use tempfile::NamedTempFile;
+    use tokio::net::TcpListener;
     use tokio::{task::JoinHandle, time::sleep};
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -209,18 +207,25 @@ mod test {
         }
     }
 
-    fn init() -> (JoinHandle<()>, MockTimeslotBackend, MockConfiguration) {
+    async fn init() -> (
+        JoinHandle<Result<(), std::io::Error>>,
+        SocketAddr,
+        MockTimeslotBackend,
+        MockConfiguration,
+    ) {
         let mock_backend = MockTimeslotBackend::new();
         let mock_configuration = MockConfiguration::new();
         let state = AppState {
             timeslot_manager: mock_backend.clone(),
             configuration_handler: mock_configuration.clone(),
         };
-        (
-            tokio::spawn(start_server(state)),
-            mock_backend,
-            mock_configuration,
-        )
+
+        let app = create_app(state);
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let join = tokio::spawn(async move { axum::serve(listener, app).await });
+
+        (join, addr, mock_backend, mock_configuration)
     }
 
     #[test_case::test_case ("book", BookingRequest { id: Uuid::new_v4(), client_name: String::from("Stefan") }, true)]
@@ -234,7 +239,7 @@ mod test {
     where
         T: Serialize,
     {
-        let (server, mock_backend, mock_configuration) = init();
+        let (server, addr, mock_backend, mock_configuration) = init().await;
         let password = String::from("123");
         *mock_configuration.0.password.lock().unwrap() = password.clone();
         mock_backend
@@ -244,7 +249,7 @@ mod test {
 
         let client = Client::new();
         let response = client
-            .post(format!("http://localhost:3000/{path}"))
+            .post(format!("http://{addr}/{path}"))
             .header("x-admin-password", password)
             .json(&request)
             .send()
@@ -293,17 +298,17 @@ mod test {
     ) where
         T: Serialize,
     {
-        let (server, mock_backend, mock_configuration) = init();
+        let (server, addr, mock_backend, mock_configuration) = init().await;
         let password = String::from("123");
         let wrong_password = String::from("xyz");
         *mock_configuration.0.password.lock().unwrap() = password.clone();
 
         let client = Client::new();
         let mut request_builder = match method.to_lowercase().as_str() {
-            "get" => client.get(format!("http://localhost:3000/{path}")),
-            "post" => client.post(format!("http://localhost:3000/{path}")),
-            "put" => client.put(format!("http://localhost:3000/{path}")),
-            "delete" => client.delete(format!("http://localhost:3000/{path}")), // TODO_SD: Make Remove requests delete instead of post?
+            "get" => client.get(format!("http://{addr}/{path}")),
+            "post" => client.post(format!("http://{addr}/{path}")),
+            "put" => client.put(format!("http://{addr}/{path}")),
+            "delete" => client.delete(format!("http://{addr}/{path}")), // TODO_SD: Make Remove requests delete instead of post?
             _ => panic!("Unsupported HTTP method: {}", method),
         };
         request_builder = match authorization {
@@ -320,7 +325,7 @@ mod test {
 
     #[tokio::test]
     async fn test_get_frontend() {
-        let (server, _, mock_configuration) = init();
+        let (server, addr, _, mock_configuration) = init().await;
 
         let mut tmp_file = NamedTempFile::new().unwrap();
         let expected_html = r#"<!DOCTYPE html>
@@ -333,7 +338,7 @@ mod test {
 
         let client = Client::new();
         let response = client
-            .get("http://localhost:3000/frontend")
+            .get(format!("http://{addr}/frontend"))
             .send()
             .await
             .unwrap();
@@ -357,7 +362,7 @@ mod test {
 
     #[tokio::test]
     async fn test_get_timeslots() {
-        let (server, mock_backend, _) = init();
+        let (server, addr, mock_backend, _) = init().await;
 
         let timeslot_1 = Timeslot {
             id: Uuid::new_v4(),
@@ -379,12 +384,16 @@ mod test {
         timeslots.insert(timeslot_2.id, timeslot_2.clone());
         *mock_backend.0.timeslots.lock().unwrap() = timeslots;
 
+        println!("send request");
+
         let client = Client::new();
         let response = client
-            .get("http://localhost:3000/timeslots")
+            .get(format!("http://{addr}/timeslots"))
             .send()
             .await
             .unwrap();
+
+        println!("got response");
 
         assert_eq!(response.status(), StatusCode::OK.as_u16());
         assert_eq!(
