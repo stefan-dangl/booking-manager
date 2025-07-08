@@ -21,6 +21,8 @@ pub struct AppState<T: TimeslotBackend, S: Configuration> {
 
 #[tokio::main]
 async fn main() {
+    // TODO_SD: Add argument parsing
+
     let timeslot_manager = TimeslotManager::default();
     let configuration_handler = ConfigurationHandler {};
     let state = AppState {

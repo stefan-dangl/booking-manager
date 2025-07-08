@@ -79,13 +79,7 @@ async fn admin_auth<T: TimeslotBackend, S: Configuration>(
 async fn get_timeslots<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
 ) -> impl IntoResponse {
-    let timeslot_values: Vec<Timeslot> = state
-        .timeslot_manager
-        .timeslots()
-        .values()
-        .cloned()
-        .collect();
-    Json(timeslot_values)
+    Json(state.timeslot_manager.timeslots())
 }
 
 async fn book_timeslot<T: TimeslotBackend, S: Configuration>(
@@ -364,27 +358,23 @@ mod test {
     async fn test_get_timeslots() {
         let (server, addr, mock_backend, _) = init().await;
 
-        let timeslot_1 = Timeslot {
-            id: Uuid::new_v4(),
-            datetime: Local::now(),
-            available: true,
-            booker_name: String::new(),
-            notes: "First Timeslot".into(),
-        };
-        let timeslot_2 = Timeslot {
-            id: Uuid::new_v4(),
-            datetime: Local::now(),
-            available: false,
-            booker_name: "Stefan".into(),
-            notes: "Second Timeslot".into(),
-        };
-
-        let mut timeslots = HashMap::new();
-        timeslots.insert(timeslot_1.id, timeslot_1.clone());
-        timeslots.insert(timeslot_2.id, timeslot_2.clone());
-        *mock_backend.0.timeslots.lock().unwrap() = timeslots;
-
-        println!("send request");
+        let timeslots = vec![
+            Timeslot {
+                id: Uuid::new_v4(),
+                datetime: Local::now(),
+                available: true,
+                booker_name: String::new(),
+                notes: "First Timeslot".into(),
+            },
+            Timeslot {
+                id: Uuid::new_v4(),
+                datetime: Local::now(),
+                available: false,
+                booker_name: "Stefan".into(),
+                notes: "Second Timeslot".into(),
+            },
+        ];
+        *mock_backend.0.timeslots.lock().unwrap() = timeslots.clone();
 
         let client = Client::new();
         let response = client
@@ -409,8 +399,8 @@ mod test {
         let response_content = response.text().await.unwrap();
         let response_content: Vec<Timeslot> = serde_json::from_str(&response_content).unwrap();
         assert_eq!(response_content.len(), 2);
-        assert!(response_content.contains(&timeslot_1));
-        assert!(response_content.contains(&timeslot_2));
+        assert!(response_content.contains(&timeslots[0]));
+        assert!(response_content.contains(&timeslots[1]));
 
         server.abort();
     }

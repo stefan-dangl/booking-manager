@@ -19,7 +19,7 @@ pub struct MockTimeslotBackendInner {
     pub calls_to_add_timeslot: AtomicU64,
     pub calls_to_remove_timeslot: AtomicU64,
     pub calls_to_remove_all_timeslot: AtomicU64,
-    pub timeslots: Mutex<HashMap<Uuid, Timeslot>>,
+    pub timeslots: Mutex<Vec<Timeslot>>,
 }
 
 #[derive(Clone)]
@@ -60,7 +60,7 @@ impl TimeslotBackend for MockTimeslotBackend {
             .fetch_add(1, Ordering::SeqCst);
     }
 
-    fn timeslots(&self) -> HashMap<Uuid, Timeslot> {
+    fn timeslots(&self) -> Vec<Timeslot> {
         self.0.calls_to_timeslots.fetch_add(1, Ordering::SeqCst);
         self.0.timeslots.lock().unwrap().clone()
     }
