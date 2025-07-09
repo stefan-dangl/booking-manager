@@ -1,16 +1,21 @@
+#[macro_use]
+extern crate diesel;
+
 use crate::{
     backend::TimeslotBackend, configuration::Configuration,
     configuration_handler::ConfigurationHandler, http::create_app,
-    timeslot_manager::TimeslotManager,
+    local_timeslot_manager::TimeslotManager,
 };
 
 mod backend;
 mod configuration;
 mod configuration_handler;
+mod database_interface;
 mod http;
+mod local_timeslot_manager;
+mod schema;
 #[cfg(test)]
 mod testutils;
-mod timeslot_manager;
 mod types;
 
 #[derive(Clone)]

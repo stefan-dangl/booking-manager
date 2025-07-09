@@ -70,7 +70,7 @@ impl TimeslotBackend for MockTimeslotBackend {
         self.result()
     }
 
-    fn add_timeslot(&self, _datetime: chrono::DateTime<chrono::Local>, _notes: String) {
+    fn add_timeslot(&self, _datetime: chrono::DateTime<chrono::Utc>, _notes: String) {
         self.0.calls_to_add_timeslot.fetch_add(1, Ordering::SeqCst);
     }
 

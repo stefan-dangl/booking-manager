@@ -1,5 +1,5 @@
 use crate::{backend::TimeslotBackend, types::Timeslot};
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Utc};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -17,7 +17,7 @@ impl TimeslotBackend for TimeslotManager {
         const NUMBER_OF_EXAMPLES: i64 = 5;
         for i in 1..=NUMBER_OF_EXAMPLES {
             let datetime = Local::now() + chrono::Duration::days(i);
-            self.add_timeslot(datetime, "Example Slot".into());
+            // self.add_timeslot(datetime, "Example Slot".into());
         }
     }
 
@@ -46,11 +46,10 @@ impl TimeslotBackend for TimeslotManager {
         Ok(())
     }
 
-    fn add_timeslot(&self, datetime: DateTime<Local>, notes: String) {
+    fn add_timeslot(&self, datetime: DateTime<Utc>, notes: String) {
         println!("ACTUAL BACKEND CALLED");
 
         let id = Uuid::new_v4();
-        // TODO_SD: Check if id is not yet in HashMap
         let mut timeslots = self.timeslots.lock().unwrap();
         timeslots.insert(
             id,
@@ -81,14 +80,14 @@ impl TimeslotBackend for TimeslotManager {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{backend::TimeslotBackend, timeslot_manager::TimeslotManager};
+    use crate::{backend::TimeslotBackend, local_timeslot_manager::TimeslotManager};
     use chrono::Local;
 
     #[test]
     fn test_add_book_remove_single_timeslot() {
         let timeslot_manager = TimeslotManager::default();
 
-        let datetime = Local::now();
+        let datetime = Utc::now();
         let notes = String::from("First Timeslot");
         timeslot_manager.add_timeslot(datetime, notes.clone());
 
@@ -125,16 +124,18 @@ mod test {
     fn test_remove_multiple_timeslots() {
         let timeslot_manager = TimeslotManager::default();
 
-        let datetime_1 = Local::now();
+        let datetime_1 = Utc::now();
         let notes_1 = String::from("First Timeslot");
-        let datetime_2 = Local::now();
+        let datetime_2 = Utc::now();
         let notes_2 = String::from("Seconds Timeslot");
-        let datetime_3 = Local::now();
+        let datetime_3 = Utc::now();
         let notes_3 = String::from("Third Timeslot");
 
         timeslot_manager.add_timeslot(datetime_1, notes_1.clone());
         timeslot_manager.add_timeslot(datetime_2, notes_2.clone());
         timeslot_manager.add_timeslot(datetime_3, notes_3.clone());
+
+        timeslot_manager.remove_timeslot(Uuid::new_v4()).unwrap(); // try to delete not existing timeslot
         let timeslots = timeslot_manager.timeslots();
         assert_eq!(timeslots.len(), 3);
 

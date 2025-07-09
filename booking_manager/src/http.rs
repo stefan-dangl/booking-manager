@@ -11,7 +11,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tower_http::cors::{Any, CorsLayer};
@@ -30,7 +30,7 @@ struct DeleteTimeslotRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct AddTimeslotRequest {
-    datetime: DateTime<Local>,
+    datetime: DateTime<Utc>,
     notes: String,
 }
 
@@ -224,7 +224,7 @@ mod test {
 
     #[test_case::test_case ("book", BookingRequest { id: Uuid::new_v4(), client_name: String::from("Stefan") }, true)]
     #[test_case::test_case ("book", BookingRequest { id: Uuid::new_v4(), client_name: String::from("Stefan") }, false)]
-    #[test_case::test_case ("add", AddTimeslotRequest { datetime: Local::now(), notes: String::from("Example Notes") }, true)]
+    #[test_case::test_case ("add", AddTimeslotRequest { datetime: Utc::now(), notes: String::from("Example Notes") }, true)]
     #[test_case::test_case ("remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, true)]
     #[test_case::test_case ("remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, false)]
     #[test_case::test_case ("remove_all", EmptyRequest {  }, true)]
@@ -272,9 +272,9 @@ mod test {
     #[test_case::test_case ("post", "book", BookingRequest { id: Uuid::new_v4(), client_name: String::from("Stefan") }, Authorization::None, 1, StatusCode::OK)]
     #[test_case::test_case ("post", "book", BookingRequest { id: Uuid::new_v4(), client_name: String::from("Stefan") }, Authorization::Invalid, 1, StatusCode::OK)]
     #[test_case::test_case ("post", "book", BookingRequest { id: Uuid::new_v4(), client_name: String::from("Stefan") }, Authorization::Valid, 1, StatusCode::OK)]
-    #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Local::now(), notes: String::from("Example Notes") }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
-    #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Local::now(), notes: String::from("Example Notes") }, Authorization::Invalid, 0, StatusCode::UNAUTHORIZED)]
-    #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Local::now(), notes: String::from("Example Notes") }, Authorization::Valid, 1, StatusCode::OK)]
+    #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Utc::now(), notes: String::from("Example Notes") }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
+    #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Utc::now(), notes: String::from("Example Notes") }, Authorization::Invalid, 0, StatusCode::UNAUTHORIZED)]
+    #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Utc::now(), notes: String::from("Example Notes") }, Authorization::Valid, 1, StatusCode::OK)]
     #[test_case::test_case ("post", "remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
     #[test_case::test_case ("post", "remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, Authorization::Valid, 1, StatusCode::OK)]
     #[test_case::test_case ("post", "remove_all", EmptyRequest {  }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
@@ -361,14 +361,14 @@ mod test {
         let timeslots = vec![
             Timeslot {
                 id: Uuid::new_v4(),
-                datetime: Local::now(),
+                datetime: Utc::now(),
                 available: true,
                 booker_name: String::new(),
                 notes: "First Timeslot".into(),
             },
             Timeslot {
                 id: Uuid::new_v4(),
-                datetime: Local::now(),
+                datetime: Utc::now(),
                 available: false,
                 booker_name: "Stefan".into(),
                 notes: "Second Timeslot".into(),
