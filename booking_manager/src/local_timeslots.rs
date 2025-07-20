@@ -7,11 +7,11 @@ use std::{
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Default)]
-pub struct TimeslotManager {
+pub struct LocalTimeslots {
     timeslots: Arc<Mutex<HashMap<Uuid, Timeslot>>>,
 }
 
-impl TimeslotBackend for TimeslotManager {
+impl TimeslotBackend for LocalTimeslots {
     // TODO: Remove
     fn insert_example_timeslots(&self) {
         const NUMBER_OF_EXAMPLES: i64 = 5;
@@ -80,18 +80,18 @@ impl TimeslotBackend for TimeslotManager {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{backend::TimeslotBackend, local_timeslot_manager::TimeslotManager};
+    use crate::{backend::TimeslotBackend, local_timeslots::LocalTimeslots};
     use chrono::Local;
 
     #[test]
     fn test_add_book_remove_single_timeslot() {
-        let timeslot_manager = TimeslotManager::default();
+        let local_timeslots = LocalTimeslots::default();
 
         let datetime = Utc::now();
         let notes = String::from("First Timeslot");
-        timeslot_manager.add_timeslot(datetime, notes.clone());
+        local_timeslots.add_timeslot(datetime, notes.clone());
 
-        let timeslots = timeslot_manager.timeslots();
+        let timeslots = local_timeslots.timeslots();
         let timeslot_id = timeslots[0].id;
         assert_eq!(timeslots.len(), 1);
         assert_eq!(timeslots[0].notes, notes);
@@ -99,30 +99,30 @@ mod test {
         assert_eq!(timeslots[0].booker_name, "");
 
         let booker_name = String::from("Stefan");
-        timeslot_manager
+        local_timeslots
             .book_timeslot(timeslot_id, booker_name.clone())
             .unwrap();
 
-        let timeslots = timeslot_manager.timeslots();
+        let timeslots = local_timeslots.timeslots();
         assert_eq!(timeslots.len(), 1);
         assert!(!timeslots[0].available);
         assert_eq!(timeslots[0].booker_name, booker_name);
 
         let booker_name = String::from("Peter");
-        timeslot_manager
+        local_timeslots
             .book_timeslot(timeslot_id, booker_name.clone())
             .unwrap_err();
 
-        timeslot_manager.remove_timeslot(timeslot_id).unwrap();
-        let timeslots = timeslot_manager.timeslots();
+        local_timeslots.remove_timeslot(timeslot_id).unwrap();
+        let timeslots = local_timeslots.timeslots();
         assert_eq!(timeslots.len(), 0);
 
-        timeslot_manager.remove_timeslot(timeslot_id).unwrap_err();
+        local_timeslots.remove_timeslot(timeslot_id).unwrap_err();
     }
 
     #[test]
     fn test_remove_multiple_timeslots() {
-        let timeslot_manager = TimeslotManager::default();
+        let local_timeslots = LocalTimeslots::default();
 
         let datetime_1 = Utc::now();
         let notes_1 = String::from("First Timeslot");
@@ -131,20 +131,20 @@ mod test {
         let datetime_3 = Utc::now();
         let notes_3 = String::from("Third Timeslot");
 
-        timeslot_manager.add_timeslot(datetime_1, notes_1.clone());
-        timeslot_manager.add_timeslot(datetime_2, notes_2.clone());
-        timeslot_manager.add_timeslot(datetime_3, notes_3.clone());
+        local_timeslots.add_timeslot(datetime_1, notes_1.clone());
+        local_timeslots.add_timeslot(datetime_2, notes_2.clone());
+        local_timeslots.add_timeslot(datetime_3, notes_3.clone());
 
-        timeslot_manager.remove_timeslot(Uuid::new_v4()).unwrap(); // try to delete not existing timeslot
-        let timeslots = timeslot_manager.timeslots();
+        local_timeslots.remove_timeslot(Uuid::new_v4()).unwrap(); // try to delete not existing timeslot
+        let timeslots = local_timeslots.timeslots();
         assert_eq!(timeslots.len(), 3);
 
-        timeslot_manager.remove_timeslot(timeslots[0].id).unwrap();
-        let timeslots = timeslot_manager.timeslots();
+        local_timeslots.remove_timeslot(timeslots[0].id).unwrap();
+        let timeslots = local_timeslots.timeslots();
         assert_eq!(timeslots.len(), 2);
 
-        timeslot_manager.remove_all_timeslot();
-        let timeslots = timeslot_manager.timeslots();
+        local_timeslots.remove_all_timeslot();
+        let timeslots = local_timeslots.timeslots();
         assert_eq!(timeslots.len(), 0);
     }
 }

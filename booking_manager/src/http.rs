@@ -1,7 +1,6 @@
 use crate::backend::TimeslotBackend;
 use crate::configuration::Configuration;
 use crate::types::Timeslot;
-use crate::AppState;
 use axum::body::Body;
 use axum::extract::Request;
 use axum::middleware::{self, Next};
@@ -11,11 +10,17 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tower_http::cors::{Any, CorsLayer};
 use uuid::Uuid;
+
+#[derive(Clone)]
+pub struct AppState<T: TimeslotBackend, S: Configuration> {
+    pub backend: T,
+    pub configuration: S,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct BookingRequest {
@@ -34,7 +39,12 @@ struct AddTimeslotRequest {
     notes: String,
 }
 
-pub fn create_app<T: TimeslotBackend, S: Configuration>(state: AppState<T, S>) -> Router {
+pub fn create_app<T: TimeslotBackend, S: Configuration>(backend: T, configuration: S) -> Router {
+    let state = AppState {
+        backend,
+        configuration,
+    };
+
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -64,7 +74,7 @@ async fn admin_auth<T: TimeslotBackend, S: Configuration>(
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, (StatusCode, String)> {
-    let password = state.configuration_handler.password();
+    let password = state.configuration.password();
 
     if let Some(auth_header) = request.headers().get("x-admin-password") {
         if auth_header.to_str().unwrap_or("") != password {
@@ -79,17 +89,14 @@ async fn admin_auth<T: TimeslotBackend, S: Configuration>(
 async fn get_timeslots<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
 ) -> impl IntoResponse {
-    Json(state.timeslot_manager.timeslots())
+    Json(state.backend.timeslots())
 }
 
 async fn book_timeslot<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
     Json(booking): Json<BookingRequest>,
 ) -> impl IntoResponse {
-    match state
-        .timeslot_manager
-        .book_timeslot(booking.id, booking.client_name)
-    {
+    match state.backend.book_timeslot(booking.id, booking.client_name) {
         Ok(()) => (StatusCode::OK, "Timeslot booked successfully".to_string()),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err),
     }
@@ -100,7 +107,7 @@ async fn add_timeslot<T: TimeslotBackend, S: Configuration>(
     Json(timeslot): Json<AddTimeslotRequest>,
 ) -> impl IntoResponse {
     state
-        .timeslot_manager
+        .backend
         .add_timeslot(timeslot.datetime, timeslot.notes);
 
     (StatusCode::OK, "Timeslot added successfully".to_string())
@@ -110,7 +117,7 @@ async fn remove_timeslot<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
     Json(timeslot): Json<DeleteTimeslotRequest>,
 ) -> impl IntoResponse {
-    match state.timeslot_manager.remove_timeslot(timeslot.id) {
+    match state.backend.remove_timeslot(timeslot.id) {
         Ok(()) => (StatusCode::OK, "Timeslot removed successfully".to_string()),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err),
     }
@@ -119,7 +126,7 @@ async fn remove_timeslot<T: TimeslotBackend, S: Configuration>(
 async fn remove_all_timeslot<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
 ) -> impl IntoResponse {
-    state.timeslot_manager.remove_all_timeslot();
+    state.backend.remove_all_timeslot();
     (
         StatusCode::OK,
         "All timeslots removed successfully".to_string(),
@@ -129,7 +136,7 @@ async fn remove_all_timeslot<T: TimeslotBackend, S: Configuration>(
 async fn get_frontend<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
 ) -> Result<Html<String>, (StatusCode, String)> {
-    let path = state.configuration_handler.frontend_path();
+    let path = state.configuration.frontend_path();
 
     match fs::read_to_string(path).await {
         Ok(contents) => Ok(Html(contents)),
@@ -209,12 +216,8 @@ mod test {
     ) {
         let mock_backend = MockTimeslotBackend::new();
         let mock_configuration = MockConfiguration::new();
-        let state = AppState {
-            timeslot_manager: mock_backend.clone(),
-            configuration_handler: mock_configuration.clone(),
-        };
 
-        let app = create_app(state);
+        let app = create_app(mock_backend.clone(), mock_configuration.clone());
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let join = tokio::spawn(async move { axum::serve(listener, app).await });
