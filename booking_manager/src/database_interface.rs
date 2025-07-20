@@ -82,10 +82,6 @@ impl TimeslotBackend for DatabaseInterface {
         }
     }
 
-    fn insert_example_timeslots(&self) {
-        // TODO_SD: Remove
-    }
-
     fn remove_timeslot(&self, new_id: Uuid) -> Result<(), String> {
         let mut connection = self.connection.lock().unwrap();
         let result = diesel::delete(timeslots::table.find(new_id)).execute(&mut *connection);
@@ -126,8 +122,6 @@ mod test {
     //! 3. Proper table schema (run migrations first)
     //!  
     //! More information can be found in README.md
-
-    use chrono::Duration;
 
     use super::*;
     use chrono::Duration;

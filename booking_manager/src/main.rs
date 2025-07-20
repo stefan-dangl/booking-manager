@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate diesel;
 use crate::{
-    configuration_handler::ConfigurationHandler, database_interface::DatabaseInterface,
-    http::create_app, local_timeslots::LocalTimeslots,
+    configuration::Configuration, configuration_handler::ConfigurationHandler,
+    database_interface::DatabaseInterface, http::create_app, local_timeslots::LocalTimeslots,
 };
 
 mod backend;

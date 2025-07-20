@@ -1,5 +1,5 @@
 use crate::{backend::TimeslotBackend, types::Timeslot};
-use chrono::{DateTime, Duration, Local, Utc};
+use chrono::{DateTime, Duration, Utc};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -9,38 +9,24 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Default)]
 pub struct LocalTimeslots {
     timeslots: Arc<Mutex<HashMap<Uuid, Timeslot>>>,
-    last_cleanup: Arc<Mutex<DateTime<Utc>>>,
 }
 
 impl LocalTimeslots {
     fn cleanup_outdated_timeslots(&self, max_age: Duration) {
         let current_time = Utc::now();
         let cutoff_time = current_time - max_age;
-
         let mut timeslots = self.timeslots.lock().unwrap();
-        let mut last_cleanup = self.last_cleanup.lock().unwrap();
-
-        if *last_cleanup >= cutoff_time {
-            return;
-        }
 
         timeslots.retain(|_, timeslot| timeslot.datetime >= cutoff_time);
-        *last_cleanup = current_time;
     }
 }
 
 impl TimeslotBackend for LocalTimeslots {
-    // TODO: Remove
-    fn insert_example_timeslots(&self) {
-        const NUMBER_OF_EXAMPLES: i64 = 5;
-        for i in 1..=NUMBER_OF_EXAMPLES {
-            let datetime = Local::now() + chrono::Duration::days(i);
-            // self.add_timeslot(datetime, "Example Slot".into());
-        }
-    }
-
     fn timeslots(&self) -> Vec<Timeslot> {
+        println!("LOAD TIMESLOTS");
+
         self.cleanup_outdated_timeslots(Duration::days(1));
+
         self.timeslots
             .lock()
             .unwrap()
@@ -153,7 +139,7 @@ mod test {
         local_timeslots.add_timeslot(datetime_2, notes_2.clone());
         local_timeslots.add_timeslot(datetime_3, notes_3.clone());
 
-        local_timeslots.remove_timeslot(Uuid::new_v4()).unwrap(); // try to delete not existing timeslot
+        local_timeslots.remove_timeslot(Uuid::new_v4()).unwrap_err(); // try to delete not existing timeslot
         let timeslots = local_timeslots.timeslots();
         assert_eq!(timeslots.len(), 3);
 

@@ -74,14 +74,6 @@ impl ConfigurationHandler {
             port,
         }
     }
-
-    pub fn database_url(&self) -> Option<String> {
-        self.database_url.clone()
-    }
-
-    pub fn port(&self) -> String {
-        self.port.clone()
-    }
 }
 
 impl Configuration for ConfigurationHandler {
@@ -91,5 +83,13 @@ impl Configuration for ConfigurationHandler {
 
     fn frontend_path(&self) -> PathBuf {
         self.frontend_path.clone()
+    }
+
+    fn database_url(&self) -> Option<String> {
+        self.database_url.clone()
+    }
+
+    fn port(&self) -> String {
+        self.port.clone()
     }
 }

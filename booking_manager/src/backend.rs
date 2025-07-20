@@ -3,7 +3,6 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 pub trait TimeslotBackend: Clone + Send + Sync + 'static {
-    fn insert_example_timeslots(&self);
     fn timeslots(&self) -> Vec<Timeslot>;
     fn book_timeslot(&self, id: Uuid, booker_name: String) -> Result<(), String>;
     fn add_timeslot(&self, datetime: DateTime<Utc>, notes: String);

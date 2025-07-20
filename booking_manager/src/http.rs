@@ -106,10 +106,16 @@ async fn add_timeslot<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
     Json(timeslot): Json<AddTimeslotRequest>,
 ) -> impl IntoResponse {
+    println!("TRY TO ADD TIMESLOT");
+
     state
         .backend
         .add_timeslot(timeslot.datetime, timeslot.notes);
 
+    println!("TIMESLOT ADDED");
+
+    let timeslots = state.backend.timeslots();
+    println!("timeslots: {timeslots:?}");
     (StatusCode::OK, "Timeslot added successfully".to_string())
 }
 
@@ -137,9 +143,13 @@ async fn get_frontend<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
 ) -> Result<Html<String>, (StatusCode, String)> {
     let path = state.configuration.frontend_path();
+    let port = state.configuration.port();
 
     match fs::read_to_string(path).await {
-        Ok(contents) => Ok(Html(contents)),
+        Ok(contents) => {
+            let contents = contents.replace("localhost:PORT", &format!("localhost:{port}"));
+            Ok(Html(contents))
+        }
         Err(e) => {
             let error_message = format!("Failed to read frontend file: {}", e);
             Err((StatusCode::INTERNAL_SERVER_ERROR, error_message))

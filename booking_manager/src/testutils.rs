@@ -13,7 +13,6 @@ use crate::{backend::TimeslotBackend, configuration::Configuration, types::Times
 
 pub struct MockTimeslotBackendInner {
     pub success: AtomicBool,
-    pub calls_to_insert_example_timeslots: AtomicU64,
     pub calls_to_timeslots: AtomicU64,
     pub calls_to_book_timeslot: AtomicU64,
     pub calls_to_add_timeslot: AtomicU64,
@@ -29,7 +28,6 @@ impl MockTimeslotBackendInner {
     fn new() -> Self {
         Self {
             success: AtomicBool::new(true),
-            calls_to_insert_example_timeslots: AtomicU64::default(),
             calls_to_timeslots: AtomicU64::default(),
             calls_to_book_timeslot: AtomicU64::default(),
             calls_to_add_timeslot: AtomicU64::default(),
@@ -54,12 +52,6 @@ impl MockTimeslotBackend {
 }
 
 impl TimeslotBackend for MockTimeslotBackend {
-    fn insert_example_timeslots(&self) {
-        self.0
-            .calls_to_insert_example_timeslots
-            .fetch_add(1, Ordering::SeqCst);
-    }
-
     fn timeslots(&self) -> Vec<Timeslot> {
         self.0.calls_to_timeslots.fetch_add(1, Ordering::SeqCst);
         self.0.timeslots.lock().unwrap().clone()
@@ -118,5 +110,13 @@ impl Configuration for MockConfiguration {
 
     fn frontend_path(&self) -> PathBuf {
         self.0.frontend_path.lock().unwrap().clone()
+    }
+
+    fn port(&self) -> String {
+        "1234".into()
+    }
+
+    fn database_url(&self) -> Option<String> {
+        unimplemented!()
     }
 }
