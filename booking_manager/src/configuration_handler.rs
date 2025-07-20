@@ -93,5 +93,3 @@ impl Configuration for ConfigurationHandler {
         self.frontend_path.clone()
     }
 }
-
-// TODO_SD: Add tests

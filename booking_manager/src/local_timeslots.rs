@@ -1,5 +1,5 @@
 use crate::{backend::TimeslotBackend, types::Timeslot};
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Duration, Local, Utc};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -9,6 +9,24 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Default)]
 pub struct LocalTimeslots {
     timeslots: Arc<Mutex<HashMap<Uuid, Timeslot>>>,
+    last_cleanup: Arc<Mutex<DateTime<Utc>>>,
+}
+
+impl LocalTimeslots {
+    fn cleanup_outdated_timeslots(&self, max_age: Duration) {
+        let current_time = Utc::now();
+        let cutoff_time = current_time - max_age;
+
+        let mut timeslots = self.timeslots.lock().unwrap();
+        let mut last_cleanup = self.last_cleanup.lock().unwrap();
+
+        if *last_cleanup >= cutoff_time {
+            return;
+        }
+
+        timeslots.retain(|_, timeslot| timeslot.datetime >= cutoff_time);
+        *last_cleanup = current_time;
+    }
 }
 
 impl TimeslotBackend for LocalTimeslots {
@@ -22,6 +40,7 @@ impl TimeslotBackend for LocalTimeslots {
     }
 
     fn timeslots(&self) -> Vec<Timeslot> {
+        self.cleanup_outdated_timeslots(Duration::days(1));
         self.timeslots
             .lock()
             .unwrap()
@@ -81,7 +100,6 @@ impl TimeslotBackend for LocalTimeslots {
 mod test {
     use super::*;
     use crate::{backend::TimeslotBackend, local_timeslots::LocalTimeslots};
-    use chrono::Local;
 
     #[test]
     fn test_add_book_remove_single_timeslot() {
@@ -146,5 +164,35 @@ mod test {
         local_timeslots.remove_all_timeslot();
         let timeslots = local_timeslots.timeslots();
         assert_eq!(timeslots.len(), 0);
+    }
+
+    #[test]
+    fn cleanup_outdated_timeslots() {
+        let local_timeslots = LocalTimeslots::default();
+
+        let datetime_1 = Utc::now();
+        let notes_1 = String::from("First Timeslot");
+        let datetime_2 = Utc::now() - Duration::hours(2);
+        let notes_2 = String::from("Seconds Timeslot");
+        let datetime_3 = Utc::now() - Duration::days(2);
+        let notes_3 = String::from("Third Timeslot");
+
+        local_timeslots.add_timeslot(datetime_1, notes_1.clone());
+        local_timeslots.add_timeslot(datetime_2, notes_2.clone());
+        local_timeslots.add_timeslot(datetime_3, notes_3.clone());
+        assert_eq!(local_timeslots.timeslots.lock().unwrap().len(), 3);
+
+        local_timeslots.cleanup_outdated_timeslots(Duration::days(1));
+        let timeslots = local_timeslots.timeslots.lock().unwrap();
+        assert_eq!(timeslots.len(), 2);
+
+        let mut expected_notes = vec!["First Timeslot", "Seconds Timeslot"];
+        for (_, timeslot) in &*timeslots {
+            let index = expected_notes
+                .iter()
+                .position(|&x| x == &timeslot.notes)
+                .unwrap();
+            expected_notes.remove(index);
+        }
     }
 }

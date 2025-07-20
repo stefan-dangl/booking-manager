@@ -1,15 +1,10 @@
-use std::sync::{Arc, Mutex};
-
-use crate::schema::timeslots::dsl::*;
 use crate::schema::timeslots::dsl::*;
 use crate::types::Timeslot;
 use crate::{backend::TimeslotBackend, schema::timeslots};
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 use diesel::{Connection, ConnectionError, ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};
-use serde::Serialize;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
-
-const DATABASE_UNREACHABLE_ERROR_MESSAGE: &str = "Failed to establish connection to database. Consider executing the program without database (timeslots are not persistent in this execution mode)";
 
 #[derive(Insertable)]
 #[table_name = "timeslots"]
@@ -20,7 +15,6 @@ pub struct NewTimeslot {
 
 #[derive(Clone)]
 pub struct DatabaseInterface {
-    database_url: String,
     connection: Arc<Mutex<PgConnection>>,
 }
 
@@ -28,7 +22,6 @@ impl DatabaseInterface {
     pub fn new(database_url: &str) -> Result<Self, ConnectionError> {
         let connection = Self::establish_connection(database_url)?;
         Ok(Self {
-            database_url: database_url.into(),
             connection: Arc::new(Mutex::new(connection)),
         })
     }
@@ -41,6 +34,14 @@ impl DatabaseInterface {
 impl TimeslotBackend for DatabaseInterface {
     fn timeslots(&self) -> Vec<Timeslot> {
         let mut connection = self.connection.lock().unwrap();
+
+        diesel::sql_query("DELETE FROM timeslots WHERE datetime < (NOW() - INTERVAL '1 day')")
+            .execute(&mut *connection)
+            .unwrap_or_else(|err| {
+                eprintln!("Cleanup failed: {}", err);
+                0
+            });
+
         let result = timeslots.load::<Timeslot>(&mut *connection);
         match result {
             Ok(result) => result,
@@ -116,6 +117,8 @@ impl TimeslotBackend for DatabaseInterface {
 mod test {
     //! # Integration Tests for Timeslot Booking
     //!
+    //! ATTENTION: Running any of these tests leads to an cleared database!!!
+    //!
     //! ## Database Requirements
     //! Test requirements:
     //! 1. A running PostgreSQL server
@@ -124,7 +127,10 @@ mod test {
     //!  
     //! More information can be found in README.md
 
+    use chrono::Duration;
+
     use super::*;
+    use chrono::Duration;
 
     const TEST_DATABASE_URL: &str = "postgres://username:password@localhost/booking_manager";
 
@@ -221,5 +227,35 @@ mod test {
         let database_interface = DatabaseInterface::new(TEST_DATABASE_URL).unwrap();
         let current_timeslots = database_interface.timeslots();
         assert_eq!(current_timeslots.len(), 3);
+        database_interface.remove_all_timeslot();
+    }
+
+    #[test]
+    fn cleanup_outdated_timeslots() {
+        let database_interface = DatabaseInterface::new(TEST_DATABASE_URL).unwrap();
+        database_interface.remove_all_timeslot();
+
+        let datetime_1 = Utc::now();
+        let notes_1 = String::from("First Timeslot");
+        let datetime_2 = Utc::now() - Duration::hours(2);
+        let notes_2 = String::from("Seconds Timeslot");
+        let datetime_3 = Utc::now() - Duration::days(2);
+        let notes_3 = String::from("Third Timeslot");
+
+        database_interface.add_timeslot(datetime_1, notes_1);
+        database_interface.add_timeslot(datetime_2, notes_2);
+        database_interface.add_timeslot(datetime_3, notes_3);
+
+        let current_timeslots = database_interface.timeslots();
+        assert_eq!(current_timeslots.len(), 2);
+
+        let mut expected_notes = vec!["First Timeslot", "Seconds Timeslot"];
+        for timeslot in current_timeslots {
+            let index = expected_notes
+                .iter()
+                .position(|&x| x == &timeslot.notes)
+                .unwrap();
+            expected_notes.remove(index);
+        }
     }
 }
