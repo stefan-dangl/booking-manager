@@ -136,6 +136,11 @@
             border: 2px solid #2196F3;
         }
 
+        .outdated {
+            background-color: #dedede;
+            cursor: not-allowed;
+        }
+
         form {
             display: flex;
             flex-direction: column;
@@ -273,7 +278,7 @@
                 </div>
                 <div class="form-row">
                     <label for="newTime">Time (24h):</label>
-                    <input type="time" id="newTime" required step="900">
+                    <input type="time" id="newTime" required step="60">
                 </div>
                 <div class="form-row">
                     <label for="newNotes">Notes:</label>
@@ -352,51 +357,50 @@
                 return;
             }
 
+            const now = new Date(); // Current time for comparison
+
             timeslotsDiv.innerHTML = slots.map(slot => {
                 const slotDate = new Date(slot.datetime);
                 const isAvailable = slot.available;
+                const isOutdated = slotDate < now; // Check if timeslot is in the past
                 const notes = slot.notes;
                 const booker_name = slot.booker_name;
 
                 return `
-                    <div class="timeslot ${isAvailable ? 'available' : 'booked'}"
-                         data-datetime="${slot.datetime}"
-                         data-available="${isAvailable}"
-                         data-id="${slot.id || ''}">
-                        <strong>${slotDate.toLocaleDateString()}</strong>
-                        <div>${slotDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                        <div>${notes}</div>
-                        <div>${isAvailable ? 'Available' : 'Booked by ' + booker_name}</div>
-                    </div>
+                <div class="timeslot ${isOutdated ? 'outdated' : (isAvailable ? 'available' : 'booked')}"
+                    data-datetime="${slot.datetime}"
+                    data-available="${isAvailable}"
+                    data-outdated="${isOutdated}"
+                    data-id="${slot.id || ''}">
+                    <strong>${slotDate.toLocaleDateString()}</strong>
+                    <div>${slotDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    <div>${notes}</div>
+                    <div>${!isAvailable ? 'Booked by ' + booker_name : (isOutdated ? 'Expired' : 'Available')}</div>
+                </div>
                 `;
             }).join('');
 
             // Add click event listeners to timeslots
             document.querySelectorAll('.timeslot').forEach(slot => {
                 slot.addEventListener('click', () => {
-                    if (slot.classList.contains('booked')) return;
+                    // Prevent selection if booked or outdated
+                    if (slot.classList.contains('booked') || slot.dataset.outdated === 'true') {
+                        return;
+                    }
 
-                    // Toggle selection
+                    // Rest of your existing click handler...
                     if (slot.classList.contains('selected')) {
                         slot.classList.remove('selected');
                         selectedTimeslot = null;
                         bookingForm.classList.add('hidden');
                         deleteTimeslotBtn.classList.toggle('hidden', !adminPasswordCache);
                     } else {
-                        // Remove previous selection
                         document.querySelectorAll('.timeslot').forEach(s => {
                             s.classList.remove('selected');
                         });
-
-                        // Add selection to clicked slot
                         slot.classList.add('selected');
-
-                        // Store the selected timeslot
                         selectedTimeslot = slot.dataset;
-                        console.log(selectedTimeslot);
                         selectedSlotDisplay.textContent = new Date(selectedTimeslot.datetime).toLocaleString();
-
-                        // Enable delete button and show booking form
                         bookingForm.classList.remove('hidden');
                     }
                 });

@@ -42,14 +42,13 @@ impl TimeslotBackend for DatabaseInterface {
                 0
             });
 
-        let result = timeslots.load::<Timeslot>(&mut *connection);
-        match result {
-            Ok(result) => result,
-            Err(err) => {
+        timeslots
+            .order(datetime.asc())
+            .load::<Timeslot>(&mut *connection)
+            .unwrap_or_else(|err| {
                 println!("{err} Failed to read timeslots from Database");
                 vec![]
-            }
-        }
+            })
     }
 
     fn book_timeslot(&self, timeslot_id: Uuid, new_booker_name: String) -> Result<(), String> {
@@ -165,6 +164,26 @@ mod test {
     }
 
     #[test]
+    fn test_try_book_outdated_timeslot() {
+        let database_interface = DatabaseInterface::new(TEST_DATABASE_URL).unwrap();
+        database_interface.remove_all_timeslot();
+
+        let current_time = Utc::now() - Duration::hours(2);
+        let example_notes = "Test timeslot";
+        database_interface.add_timeslot(current_time, example_notes.into());
+
+        let current_timeslots = database_interface.timeslots();
+        let timeslot_id = current_timeslots[0].id;
+        assert_eq!(current_timeslots.len(), 1);
+        assert!(current_timeslots[0].available);
+
+        let new_booker_name = String::from("Stefan");
+        database_interface
+            .book_timeslot(timeslot_id, new_booker_name.clone())
+            .unwrap_err();
+    }
+
+    #[test]
     fn test_remove_multiple_timeslots() {
         let database_interface = DatabaseInterface::new(TEST_DATABASE_URL).unwrap();
         database_interface.remove_all_timeslot();
@@ -242,14 +261,7 @@ mod test {
 
         let current_timeslots = database_interface.timeslots();
         assert_eq!(current_timeslots.len(), 2);
-
-        let mut expected_notes = vec!["First Timeslot", "Seconds Timeslot"];
-        for timeslot in current_timeslots {
-            let index = expected_notes
-                .iter()
-                .position(|&x| x == &timeslot.notes)
-                .unwrap();
-            expected_notes.remove(index);
-        }
+        assert_eq!(current_timeslots[0].notes, "Seconds Timeslot");
+        assert_eq!(current_timeslots[1].notes, "First Timeslot");
     }
 }

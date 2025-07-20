@@ -27,13 +27,16 @@ impl TimeslotBackend for LocalTimeslots {
 
         self.cleanup_outdated_timeslots(Duration::days(1));
 
-        self.timeslots
+        let mut timeslots: Vec<Timeslot> = self
+            .timeslots
             .lock()
             .unwrap()
             .clone()
             .values()
             .cloned()
-            .collect()
+            .collect();
+        timeslots.sort_unstable_by(|a, b| a.datetime.cmp(&b.datetime));
+        timeslots
     }
 
     fn book_timeslot(&self, id: Uuid, booker_name: String) -> Result<(), String> {
@@ -42,6 +45,9 @@ impl TimeslotBackend for LocalTimeslots {
             Some(timeslot) => {
                 if !timeslot.available {
                     return Err("Timeslot was already booked".into());
+                }
+                if timeslot.datetime < Utc::now() {
+                    return Err("Timeslot already passed".into());
                 }
                 timeslot.available = false;
                 timeslot.booker_name = booker_name
@@ -125,6 +131,25 @@ mod test {
     }
 
     #[test]
+    fn test_try_book_outdated_timeslot() {
+        let local_timeslots = LocalTimeslots::default();
+
+        let datetime = Utc::now() - Duration::hours(2);
+        let notes = String::from("First Timeslot");
+        local_timeslots.add_timeslot(datetime, notes.clone());
+
+        let timeslots = local_timeslots.timeslots();
+        let timeslot_id = timeslots[0].id;
+        assert_eq!(timeslots.len(), 1);
+        assert!(timeslots[0].available);
+
+        let booker_name = String::from("Stefan");
+        local_timeslots
+            .book_timeslot(timeslot_id, booker_name.clone())
+            .unwrap_err();
+    }
+
+    #[test]
     fn test_remove_multiple_timeslots() {
         let local_timeslots = LocalTimeslots::default();
 
@@ -169,16 +194,9 @@ mod test {
         assert_eq!(local_timeslots.timeslots.lock().unwrap().len(), 3);
 
         local_timeslots.cleanup_outdated_timeslots(Duration::days(1));
-        let timeslots = local_timeslots.timeslots.lock().unwrap();
+        let timeslots = local_timeslots.timeslots();
         assert_eq!(timeslots.len(), 2);
-
-        let mut expected_notes = vec!["First Timeslot", "Seconds Timeslot"];
-        for (_, timeslot) in &*timeslots {
-            let index = expected_notes
-                .iter()
-                .position(|&x| x == &timeslot.notes)
-                .unwrap();
-            expected_notes.remove(index);
-        }
+        assert_eq!(timeslots[0].notes, "Seconds Timeslot");
+        assert_eq!(timeslots[1].notes, "First Timeslot");
     }
 }

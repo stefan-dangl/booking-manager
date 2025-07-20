@@ -12,6 +12,11 @@ BEGIN
     IF OLD.available = false THEN
         RAISE EXCEPTION 'Timeslot not available.';
     END IF;
+
+    IF OLD.datetime < NOW() THEN
+        RAISE EXCEPTION 'Cannot book outdated timeslot (time has passed).';
+    END IF;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
