@@ -14,6 +14,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tower_http::cors::{Any, CorsLayer};
+use tracing::{debug, error};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -78,9 +79,11 @@ async fn admin_auth<T: TimeslotBackend, S: Configuration>(
 
     if let Some(auth_header) = request.headers().get("x-admin-password") {
         if auth_header.to_str().unwrap_or("") != password {
+            error!("Authorization failed");
             return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
         }
     } else {
+        error!("Authorization failed: Missing credentials");
         return Err((StatusCode::UNAUTHORIZED, "Missing credentials".to_string()));
     }
     Ok(next.run(request).await)
@@ -89,13 +92,18 @@ async fn admin_auth<T: TimeslotBackend, S: Configuration>(
 async fn get_timeslots<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
 ) -> impl IntoResponse {
-    Json(state.backend.timeslots())
+    debug!("Get timeslots");
+    match state.backend.timeslots() {
+        Ok(timeslots) => (StatusCode::OK, Json(timeslots)),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])), // TODO_SD: Handle error on front end side
+    }
 }
 
 async fn book_timeslot<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
     Json(booking): Json<BookingRequest>,
 ) -> impl IntoResponse {
+    debug!("Book timeslot");
     match state.backend.book_timeslot(booking.id, booking.client_name) {
         Ok(()) => (StatusCode::OK, "Timeslot booked successfully".to_string()),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err),
@@ -106,23 +114,21 @@ async fn add_timeslot<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
     Json(timeslot): Json<AddTimeslotRequest>,
 ) -> impl IntoResponse {
-    println!("TRY TO ADD TIMESLOT");
-
-    state
+    debug!("Add timeslot");
+    match state
         .backend
-        .add_timeslot(timeslot.datetime, timeslot.notes);
-
-    println!("TIMESLOT ADDED");
-
-    let timeslots = state.backend.timeslots();
-    println!("timeslots: {timeslots:?}");
-    (StatusCode::OK, "Timeslot added successfully".to_string())
+        .add_timeslot(timeslot.datetime, timeslot.notes)
+    {
+        Ok(()) => (StatusCode::OK, "Timeslot added successfully".to_string()),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err),
+    }
 }
 
 async fn remove_timeslot<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
     Json(timeslot): Json<DeleteTimeslotRequest>,
 ) -> impl IntoResponse {
+    debug!("Remove timeslot");
     match state.backend.remove_timeslot(timeslot.id) {
         Ok(()) => (StatusCode::OK, "Timeslot removed successfully".to_string()),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err),
@@ -132,16 +138,20 @@ async fn remove_timeslot<T: TimeslotBackend, S: Configuration>(
 async fn remove_all_timeslot<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
 ) -> impl IntoResponse {
-    state.backend.remove_all_timeslot();
-    (
-        StatusCode::OK,
-        "All timeslots removed successfully".to_string(),
-    )
+    debug!("Remove all timeslots");
+    match state.backend.remove_all_timeslot() {
+        Ok(()) => (
+            StatusCode::OK,
+            "All timeslots removed successfully".to_string(),
+        ),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err),
+    }
 }
 
 async fn get_frontend<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
 ) -> Result<Html<String>, (StatusCode, String)> {
+    debug!("Get frontend");
     let path = state.configuration.frontend_path();
     let port = state.configuration.port();
 
@@ -158,7 +168,6 @@ async fn get_frontend<T: TimeslotBackend, S: Configuration>(
 }
 
 async fn get_admin_page() -> impl IntoResponse {
-    println!("get admin_page called");
     StatusCode::OK
 }
 
@@ -395,8 +404,6 @@ mod test {
             .send()
             .await
             .unwrap();
-
-        println!("got response");
 
         assert_eq!(response.status(), StatusCode::OK.as_u16());
         assert_eq!(

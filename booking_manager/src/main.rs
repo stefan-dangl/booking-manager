@@ -4,6 +4,8 @@ use crate::{
     configuration::Configuration, configuration_handler::ConfigurationHandler,
     database_interface::DatabaseInterface, http::create_app, local_timeslots::LocalTimeslots,
 };
+use tracing::{info, Level};
+use tracing_subscriber::EnvFilter;
 
 mod backend;
 mod configuration;
@@ -18,6 +20,10 @@ mod types;
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+
     println!("###################");
     println!("# Booking Manager #");
     println!("###################");

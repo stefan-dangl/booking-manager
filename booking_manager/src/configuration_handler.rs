@@ -1,6 +1,7 @@
 use crate::configuration::Configuration;
 use clap::Parser;
 use dotenvy::dotenv;
+use tracing::info;
 use std::env;
 use std::path::PathBuf;
 
@@ -39,31 +40,31 @@ impl ConfigurationHandler {
 
         dotenv().expect("Failed to load .env file");
         let password = if let Some(password) = args.password {
-            println!("- Password provided as argument");
+            info!("Password provided as argument");
             password
         } else {
-            println!("- Password not provided as argument. Using HTTP_PASSWORD specified in \".env\".");
+            info!("Password not provided as argument. Using HTTP_PASSWORD specified in \".env\".");
             env::var("HTTP_PASSWORD").expect("HTTP_PASSWORD must be set in .env file")
         };
 
         let port = if let Some(port) = args.port {
-            println!("- Port provided as argument");
+            info!("Port provided as argument");
             port
         } else {
-            println!("- No port provided as argument. Using PORT specified in \".env\" file");
+            info!("No port provided as argument. Using PORT specified in \".env\" file");
             env::var("PORT").expect("PORT must be set in .env file")
         };
 
         let database_url = if let Some(database_url) = args.database_url {
             if database_url.is_empty() {
-                println!("- Run with database. No database url provided as argument. Using DATABASE_URL specified in \".env\" file");
+                info!("Run with database. No database url provided as argument. Using DATABASE_URL specified in \".env\" file");
                 Some(env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file"))
             } else {
-                println!("- Run with database. Database url provided as argument");
+                info!("Run with database. Database url provided as argument");
                 Some(database_url)
             }
         } else {
-            println!("- Run without database");
+            info!("Run without database");
             None
         };
 

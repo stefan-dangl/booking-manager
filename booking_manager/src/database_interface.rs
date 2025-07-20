@@ -4,6 +4,7 @@ use crate::{backend::TimeslotBackend, schema::timeslots};
 use chrono::{DateTime, Utc};
 use diesel::{Connection, ConnectionError, ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};
 use std::sync::{Arc, Mutex};
+use tracing::error;
 use uuid::Uuid;
 
 #[derive(Insertable)]
@@ -32,23 +33,27 @@ impl DatabaseInterface {
 }
 
 impl TimeslotBackend for DatabaseInterface {
-    fn timeslots(&self) -> Vec<Timeslot> {
+    fn timeslots(&self) -> Result<Vec<Timeslot>, String> {
         let mut connection = self.connection.lock().unwrap();
 
         diesel::sql_query("DELETE FROM timeslots WHERE datetime < (NOW() - INTERVAL '1 day')")
             .execute(&mut *connection)
             .unwrap_or_else(|err| {
-                eprintln!("Cleanup failed: {}", err);
+                error!(?err, "Cleanup failed");
                 0
             });
 
-        timeslots
+        let result = timeslots
             .order(datetime.asc())
-            .load::<Timeslot>(&mut *connection)
-            .unwrap_or_else(|err| {
-                println!("{err} Failed to read timeslots from Database");
-                vec![]
-            })
+            .load::<Timeslot>(&mut *connection);
+
+        match result {
+            Ok(current_timeslots) => Ok(current_timeslots),
+            Err(err) => {
+                error!(?err, "Failed to read timeslots from Database");
+                return Err("Failed to read timeslots from Database".into());
+            }
+        }
     }
 
     fn book_timeslot(&self, timeslot_id: Uuid, new_booker_name: String) -> Result<(), String> {
@@ -58,13 +63,13 @@ impl TimeslotBackend for DatabaseInterface {
             .execute(&mut *connection);
 
         if let Err(err) = result {
-            println!("{err} Timeslot can't be booked");
+            error!(?err, "Timeslot can't be booked");
             return Err("Database Error. Timeslot can't be booked".into());
         }
         Ok(())
     }
 
-    fn add_timeslot(&self, new_datetime: DateTime<Utc>, new_notes: String) {
+    fn add_timeslot(&self, new_datetime: DateTime<Utc>, new_notes: String) -> Result<(), String> {
         let mut connection = self.connection.lock().unwrap();
 
         let timeslot = NewTimeslot {
@@ -77,8 +82,10 @@ impl TimeslotBackend for DatabaseInterface {
             .execute(&mut *connection);
 
         if let Err(err) = result {
-            println!("{err} Timeslot can't be added");
+            error!(?err, "Timeslot can't be added");
+            return Err("Database Error. Timeslot can't be added".into());
         }
+        Ok(())
     }
 
     fn remove_timeslot(&self, new_id: Uuid) -> Result<(), String> {
@@ -87,24 +94,26 @@ impl TimeslotBackend for DatabaseInterface {
 
         match result {
             Ok(0) => {
-                println!("Deletion failed. 0 database lines were changed");
+                error!("Deletion failed. 0 database lines were changed");
                 return Err("Database Error. Deletion of timeslot failed".into());
             }
             Ok(_) => Ok(()),
             Err(err) => {
-                println!("{err} Deletion of timeslot failed");
+                error!(?err, "Deletion of timeslot failed");
                 return Err("Database Error. Deletion of timeslot failed".into());
             }
         }
     }
 
-    fn remove_all_timeslot(&self) {
+    fn remove_all_timeslot(&self) -> Result<(), String> {
         let mut connection = self.connection.lock().unwrap();
         let result = diesel::delete(timeslots::table).execute(&mut *connection);
 
         if let Err(err) = result {
-            println!("{err} Failed to clear Database");
+            error!(?err, "Failed to clear Database");
+            return Err("Failed to clear Database".into());
         }
+        Ok(())
     }
 }
 
@@ -131,14 +140,14 @@ mod test {
     fn test_add_book_remove_single_timeslot() {
         let database_interface = DatabaseInterface::new(TEST_DATABASE_URL).unwrap();
         database_interface.remove_all_timeslot();
-        let current_timeslots = database_interface.timeslots();
+        let current_timeslots = database_interface.timeslots().unwrap();
         assert_eq!(current_timeslots.len(), 0);
 
         let current_time = Utc::now();
         let example_notes = "Test timeslot";
         database_interface.add_timeslot(current_time, example_notes.into());
 
-        let current_timeslots = database_interface.timeslots();
+        let current_timeslots = database_interface.timeslots().unwrap();
         assert_eq!(current_timeslots.len(), 1);
         assert_eq!(current_timeslots[0].available, true);
         assert_eq!(current_timeslots[0].booker_name, "");
@@ -148,7 +157,7 @@ mod test {
             .book_timeslot(new_timeslot_id, "Stefan".into())
             .unwrap();
 
-        let current_timeslots = database_interface.timeslots();
+        let current_timeslots = database_interface.timeslots().unwrap();
         assert_eq!(current_timeslots.len(), 1);
         assert_eq!(current_timeslots[0].available, false);
         assert_eq!(current_timeslots[0].booker_name, "Stefan");
@@ -159,7 +168,7 @@ mod test {
             .unwrap_err();
 
         database_interface.remove_timeslot(new_timeslot_id).unwrap();
-        let current_timeslots = database_interface.timeslots();
+        let current_timeslots = database_interface.timeslots().unwrap();
         assert_eq!(current_timeslots.len(), 0);
     }
 
@@ -172,7 +181,7 @@ mod test {
         let example_notes = "Test timeslot";
         database_interface.add_timeslot(current_time, example_notes.into());
 
-        let current_timeslots = database_interface.timeslots();
+        let current_timeslots = database_interface.timeslots().unwrap();
         let timeslot_id = current_timeslots[0].id;
         assert_eq!(current_timeslots.len(), 1);
         assert!(current_timeslots[0].available);
@@ -202,17 +211,17 @@ mod test {
         database_interface // try to delete not existing timeslot
             .remove_timeslot(Uuid::new_v4())
             .unwrap_err();
-        let current_timeslots = database_interface.timeslots();
+        let current_timeslots = database_interface.timeslots().unwrap();
         assert_eq!(current_timeslots.len(), 3);
 
         database_interface
             .remove_timeslot(current_timeslots[0].id)
             .unwrap();
-        let current_timeslots = database_interface.timeslots();
+        let current_timeslots = database_interface.timeslots().unwrap();
         assert_eq!(current_timeslots.len(), 2);
 
         database_interface.remove_all_timeslot();
-        let current_timeslots = database_interface.timeslots();
+        let current_timeslots = database_interface.timeslots().unwrap();
         assert_eq!(current_timeslots.len(), 0);
     }
 
@@ -232,13 +241,13 @@ mod test {
         database_interface.add_timeslot(datetime_2, notes_2);
         database_interface.add_timeslot(datetime_3, notes_3);
 
-        let current_timeslots = database_interface.timeslots();
+        let current_timeslots = database_interface.timeslots().unwrap();
         assert_eq!(current_timeslots.len(), 3);
 
         drop(database_interface);
 
         let database_interface = DatabaseInterface::new(TEST_DATABASE_URL).unwrap();
-        let current_timeslots = database_interface.timeslots();
+        let current_timeslots = database_interface.timeslots().unwrap();
         assert_eq!(current_timeslots.len(), 3);
         database_interface.remove_all_timeslot();
     }
@@ -259,7 +268,7 @@ mod test {
         database_interface.add_timeslot(datetime_2, notes_2);
         database_interface.add_timeslot(datetime_3, notes_3);
 
-        let current_timeslots = database_interface.timeslots();
+        let current_timeslots = database_interface.timeslots().unwrap();
         assert_eq!(current_timeslots.len(), 2);
         assert_eq!(current_timeslots[0].notes, "Seconds Timeslot");
         assert_eq!(current_timeslots[1].notes, "First Timeslot");

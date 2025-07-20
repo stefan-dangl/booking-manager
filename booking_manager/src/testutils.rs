@@ -52,9 +52,9 @@ impl MockTimeslotBackend {
 }
 
 impl TimeslotBackend for MockTimeslotBackend {
-    fn timeslots(&self) -> Vec<Timeslot> {
+    fn timeslots(&self) -> Result<Vec<Timeslot>, String> {
         self.0.calls_to_timeslots.fetch_add(1, Ordering::SeqCst);
-        self.0.timeslots.lock().unwrap().clone()
+        Ok(self.0.timeslots.lock().unwrap().clone())
     }
 
     fn book_timeslot(&self, _id: uuid::Uuid, _booker_name: String) -> Result<(), String> {
@@ -62,8 +62,13 @@ impl TimeslotBackend for MockTimeslotBackend {
         self.result()
     }
 
-    fn add_timeslot(&self, _datetime: chrono::DateTime<chrono::Utc>, _notes: String) {
+    fn add_timeslot(
+        &self,
+        _datetime: chrono::DateTime<chrono::Utc>,
+        _notes: String,
+    ) -> Result<(), String> {
         self.0.calls_to_add_timeslot.fetch_add(1, Ordering::SeqCst);
+        Ok(())
     }
 
     fn remove_timeslot(&self, _id: uuid::Uuid) -> Result<(), String> {
@@ -73,10 +78,11 @@ impl TimeslotBackend for MockTimeslotBackend {
         self.result()
     }
 
-    fn remove_all_timeslot(&self) {
+    fn remove_all_timeslot(&self) -> Result<(), String> {
         self.0
             .calls_to_remove_all_timeslot
             .fetch_add(1, Ordering::SeqCst);
+        Ok(())
     }
 }
 

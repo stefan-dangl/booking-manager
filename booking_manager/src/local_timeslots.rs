@@ -4,6 +4,7 @@ use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
+use tracing::error;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Default)]
@@ -22,9 +23,7 @@ impl LocalTimeslots {
 }
 
 impl TimeslotBackend for LocalTimeslots {
-    fn timeslots(&self) -> Vec<Timeslot> {
-        println!("LOAD TIMESLOTS");
-
+    fn timeslots(&self) -> Result<Vec<Timeslot>, String> {
         self.cleanup_outdated_timeslots(Duration::days(1));
 
         let mut timeslots: Vec<Timeslot> = self
@@ -36,7 +35,7 @@ impl TimeslotBackend for LocalTimeslots {
             .cloned()
             .collect();
         timeslots.sort_unstable_by(|a, b| a.datetime.cmp(&b.datetime));
-        timeslots
+        Ok(timeslots)
     }
 
     fn book_timeslot(&self, id: Uuid, booker_name: String) -> Result<(), String> {
@@ -44,22 +43,28 @@ impl TimeslotBackend for LocalTimeslots {
         match timeslots.get_mut(&id) {
             Some(timeslot) => {
                 if !timeslot.available {
-                    return Err("Timeslot was already booked".into());
+                    let err = "Timeslot was already booked";
+                    error!(err);
+                    return Err(err.into());
                 }
                 if timeslot.datetime < Utc::now() {
-                    return Err("Timeslot already passed".into());
+                    let err = "Timeslot already passed";
+                    error!(err);
+                    return Err(err.into());
                 }
                 timeslot.available = false;
                 timeslot.booker_name = booker_name
             }
-            None => return Err("Timeslot does not exist and can't therefore not be booked".into()),
+            None => {
+                let err = "Timeslot does not exist and can't therefore not be booked";
+                error!(err);
+                return Err(err.into());
+            }
         }
         Ok(())
     }
 
-    fn add_timeslot(&self, datetime: DateTime<Utc>, notes: String) {
-        println!("ACTUAL BACKEND CALLED");
-
+    fn add_timeslot(&self, datetime: DateTime<Utc>, notes: String) -> Result<(), String> {
         let id = Uuid::new_v4();
         let mut timeslots = self.timeslots.lock().unwrap();
         timeslots.insert(
@@ -72,19 +77,23 @@ impl TimeslotBackend for LocalTimeslots {
                 notes,
             },
         );
+        Ok(())
     }
 
     fn remove_timeslot(&self, id: Uuid) -> Result<(), String> {
         let mut timeslots = self.timeslots.lock().unwrap();
         if timeslots.remove(&id).is_none() {
-            return Err("Timeslot does not exist and can't therefore not be removed".into());
+            let err = "Timeslot does not exist and can't therefore not be removed";
+            error!(err);
+            return Err(err.into());
         }
         Ok(())
     }
 
-    fn remove_all_timeslot(&self) {
+    fn remove_all_timeslot(&self) -> Result<(), String> {
         let mut timeslots = self.timeslots.lock().unwrap();
         timeslots.clear();
+        Ok(())
     }
 }
 
@@ -99,9 +108,11 @@ mod test {
 
         let datetime = Utc::now();
         let notes = String::from("First Timeslot");
-        local_timeslots.add_timeslot(datetime, notes.clone());
+        local_timeslots
+            .add_timeslot(datetime, notes.clone())
+            .unwrap();
 
-        let timeslots = local_timeslots.timeslots();
+        let timeslots = local_timeslots.timeslots().unwrap();
         let timeslot_id = timeslots[0].id;
         assert_eq!(timeslots.len(), 1);
         assert_eq!(timeslots[0].notes, notes);
@@ -113,7 +124,7 @@ mod test {
             .book_timeslot(timeslot_id, booker_name.clone())
             .unwrap();
 
-        let timeslots = local_timeslots.timeslots();
+        let timeslots = local_timeslots.timeslots().unwrap();
         assert_eq!(timeslots.len(), 1);
         assert!(!timeslots[0].available);
         assert_eq!(timeslots[0].booker_name, booker_name);
@@ -124,7 +135,7 @@ mod test {
             .unwrap_err();
 
         local_timeslots.remove_timeslot(timeslot_id).unwrap();
-        let timeslots = local_timeslots.timeslots();
+        let timeslots = local_timeslots.timeslots().unwrap();
         assert_eq!(timeslots.len(), 0);
 
         local_timeslots.remove_timeslot(timeslot_id).unwrap_err();
@@ -138,7 +149,7 @@ mod test {
         let notes = String::from("First Timeslot");
         local_timeslots.add_timeslot(datetime, notes.clone());
 
-        let timeslots = local_timeslots.timeslots();
+        let timeslots = local_timeslots.timeslots().unwrap();
         let timeslot_id = timeslots[0].id;
         assert_eq!(timeslots.len(), 1);
         assert!(timeslots[0].available);
@@ -165,15 +176,15 @@ mod test {
         local_timeslots.add_timeslot(datetime_3, notes_3.clone());
 
         local_timeslots.remove_timeslot(Uuid::new_v4()).unwrap_err(); // try to delete not existing timeslot
-        let timeslots = local_timeslots.timeslots();
+        let timeslots = local_timeslots.timeslots().unwrap();
         assert_eq!(timeslots.len(), 3);
 
         local_timeslots.remove_timeslot(timeslots[0].id).unwrap();
-        let timeslots = local_timeslots.timeslots();
+        let timeslots = local_timeslots.timeslots().unwrap();
         assert_eq!(timeslots.len(), 2);
 
         local_timeslots.remove_all_timeslot();
-        let timeslots = local_timeslots.timeslots();
+        let timeslots = local_timeslots.timeslots().unwrap();
         assert_eq!(timeslots.len(), 0);
     }
 
@@ -194,7 +205,7 @@ mod test {
         assert_eq!(local_timeslots.timeslots.lock().unwrap().len(), 3);
 
         local_timeslots.cleanup_outdated_timeslots(Duration::days(1));
-        let timeslots = local_timeslots.timeslots();
+        let timeslots = local_timeslots.timeslots().unwrap();
         assert_eq!(timeslots.len(), 2);
         assert_eq!(timeslots[0].notes, "Seconds Timeslot");
         assert_eq!(timeslots[1].notes, "First Timeslot");
