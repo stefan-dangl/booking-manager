@@ -5,6 +5,7 @@ use axum::body::Body;
 use axum::extract::Request;
 use axum::middleware::{self, Next};
 use axum::response::{Html, Response};
+use axum::routing::delete;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum::{
     routing::{get, post},
@@ -59,7 +60,7 @@ pub fn create_app<T: TimeslotBackend, S: Configuration>(backend: T, configuratio
     let admin = Router::new()
         .route("/admin_page", get(get_admin_page))
         .route("/add", post(add_timeslot))
-        .route("/remove", post(remove_timeslot))
+        .route("/remove", delete(remove_timeslot))
         .route("/remove_all", post(remove_all_timeslot))
         .route_layer(middleware::from_fn_with_state(state.clone(), admin_auth));
 
@@ -89,6 +90,7 @@ async fn admin_auth<T: TimeslotBackend, S: Configuration>(
     Ok(next.run(request).await)
 }
 
+// TODO_SD: Change to server send event
 async fn get_timeslots<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
 ) -> impl IntoResponse {
@@ -264,13 +266,14 @@ mod test {
             .store(backend_success, Ordering::SeqCst);
 
         let client = Client::new();
-        let response = client
-            .post(format!("http://{addr}/{path}"))
-            .header("x-admin-password", password)
-            .json(&request)
-            .send()
-            .await
-            .unwrap();
+
+        let request_builder = if path == "remove" {
+            client.delete(format!("http://{addr}/{path}"))
+        } else {
+            client.post(format!("http://{addr}/{path}"))
+        }
+        .header("x-admin-password", password);
+        let response = request_builder.json(&request).send().await.unwrap();
 
         if backend_success {
             assert_eq!(response.status(), StatusCode::OK.as_u16());
@@ -297,8 +300,8 @@ mod test {
     #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Utc::now(), notes: String::from("Example Notes") }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
     #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Utc::now(), notes: String::from("Example Notes") }, Authorization::Invalid, 0, StatusCode::UNAUTHORIZED)]
     #[test_case::test_case ("post", "add", AddTimeslotRequest { datetime: Utc::now(), notes: String::from("Example Notes") }, Authorization::Valid, 1, StatusCode::OK)]
-    #[test_case::test_case ("post", "remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
-    #[test_case::test_case ("post", "remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, Authorization::Valid, 1, StatusCode::OK)]
+    #[test_case::test_case ("delete", "remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
+    #[test_case::test_case ("delete", "remove", DeleteTimeslotRequest { id: Uuid::new_v4() }, Authorization::Valid, 1, StatusCode::OK)]
     #[test_case::test_case ("post", "remove_all", EmptyRequest {  }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
     #[test_case::test_case ("post", "remove_all", EmptyRequest {  }, Authorization::Valid, 1, StatusCode::OK)]
     #[test_case::test_case ("get", "admin_page", EmptyRequest {  }, Authorization::None, 0, StatusCode::UNAUTHORIZED)]
@@ -323,8 +326,7 @@ mod test {
         let mut request_builder = match method.to_lowercase().as_str() {
             "get" => client.get(format!("http://{addr}/{path}")),
             "post" => client.post(format!("http://{addr}/{path}")),
-            "put" => client.put(format!("http://{addr}/{path}")),
-            "delete" => client.delete(format!("http://{addr}/{path}")), // TODO_SD: Make Remove requests delete instead of post?
+            "delete" => client.delete(format!("http://{addr}/{path}")),
             _ => panic!("Unsupported HTTP method: {}", method),
         };
         request_builder = match authorization {
