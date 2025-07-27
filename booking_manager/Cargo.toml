@@ -23,8 +23,12 @@ dotenv = "0.15"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde_json = "1.0"
+validator = { version = "0.20", features = ["derive"] }
+axum-valid = "0.24.0"
+regex = "1.9"
+lazy_static = "1.4"
 
 
 [dev-dependencies]
 hyper = "0.14"
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11", features = ["json", "stream"] }

@@ -7,6 +7,8 @@ use std::{
     },
 };
 
+use tokio::sync::watch::{self, Sender};
+use tokio_stream::wrappers::WatchStream;
 use uuid::Uuid;
 
 use crate::{backend::TimeslotBackend, configuration::Configuration, types::Timeslot};
@@ -18,7 +20,7 @@ pub struct MockTimeslotBackendInner {
     pub calls_to_add_timeslot: AtomicU64,
     pub calls_to_remove_timeslot: AtomicU64,
     pub calls_to_remove_all_timeslot: AtomicU64,
-    pub timeslots: Mutex<Vec<Timeslot>>,
+    pub timeslot_sender: Sender<Vec<Timeslot>>,
 }
 
 #[derive(Clone)]
@@ -26,6 +28,7 @@ pub struct MockTimeslotBackend(pub Arc<MockTimeslotBackendInner>);
 
 impl MockTimeslotBackendInner {
     fn new() -> Self {
+        let (sender, _) = watch::channel(vec![]);
         Self {
             success: AtomicBool::new(true),
             calls_to_timeslots: AtomicU64::default(),
@@ -33,7 +36,7 @@ impl MockTimeslotBackendInner {
             calls_to_add_timeslot: AtomicU64::default(),
             calls_to_remove_timeslot: AtomicU64::default(),
             calls_to_remove_all_timeslot: AtomicU64::default(),
-            timeslots: Mutex::default(),
+            timeslot_sender: sender,
         }
     }
 }
@@ -80,9 +83,8 @@ impl TimeslotBackend for MockTimeslotBackend {
         Ok(())
     }
 
-    // TODO_SD: Implement
     fn timeslot_stream(&self) -> tokio_stream::wrappers::WatchStream<Vec<Timeslot>> {
-        unimplemented!()
+        WatchStream::new(self.0.timeslot_sender.subscribe())
     }
 }
 
