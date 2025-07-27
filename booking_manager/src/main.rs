@@ -4,7 +4,7 @@ use crate::{
     configuration::Configuration, configuration_handler::ConfigurationHandler,
     database_interface::DatabaseInterface, http::create_app, local_timeslots::LocalTimeslots,
 };
-use tracing::{info, Level};
+use tracing::{error, info, Level};
 use tracing_subscriber::EnvFilter;
 
 mod backend;
@@ -30,15 +30,12 @@ async fn main() {
 
     let configuration = ConfigurationHandler::parse_arguments();
 
-    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", configuration.port()))
-        .await
-        .unwrap();
+    let address = format!("127.0.0.1:{}", configuration.port());
+    println!("Accessable at:\n{}/frontend", address.clone());
+    let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
     let app = if let Some(database_url) = configuration.database_url() {
-        let backend = match DatabaseInterface::new(&database_url) {
-            Err(err) => panic!("{err} Failed to establish database connection. Terminating the program. You may want to restart it with database disabled (impersistent timeslots)."),
-            Ok(backend) => backend,
-        };
+        let backend = DatabaseInterface::new(&database_url).expect("Failed to establish database connection. Terminating the program. You may want to restart it with database disabled (impersistent timeslots).");
         create_app(backend, configuration)
     } else {
         let backend = LocalTimeslots::default();

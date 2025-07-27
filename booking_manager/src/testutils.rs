@@ -52,11 +52,6 @@ impl MockTimeslotBackend {
 }
 
 impl TimeslotBackend for MockTimeslotBackend {
-    fn timeslots(&self) -> Result<Vec<Timeslot>, String> {
-        self.0.calls_to_timeslots.fetch_add(1, Ordering::SeqCst);
-        Ok(self.0.timeslots.lock().unwrap().clone())
-    }
-
     fn book_timeslot(&self, _id: uuid::Uuid, _booker_name: String) -> Result<(), String> {
         self.0.calls_to_book_timeslot.fetch_add(1, Ordering::SeqCst);
         self.result()
@@ -83,6 +78,11 @@ impl TimeslotBackend for MockTimeslotBackend {
             .calls_to_remove_all_timeslot
             .fetch_add(1, Ordering::SeqCst);
         Ok(())
+    }
+
+    // TODO_SD: Implement
+    fn timeslot_stream(&self) -> tokio_stream::wrappers::WatchStream<Vec<Timeslot>> {
+        unimplemented!()
     }
 }
 

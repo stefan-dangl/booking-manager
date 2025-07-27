@@ -4,6 +4,7 @@ use crate::{backend::TimeslotBackend, schema::timeslots};
 use chrono::{DateTime, Utc};
 use diesel::{Connection, ConnectionError, ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};
 use std::sync::{Arc, Mutex};
+use tokio_stream::wrappers::WatchStream;
 use tracing::error;
 use uuid::Uuid;
 
@@ -30,9 +31,8 @@ impl DatabaseInterface {
     fn establish_connection(database_url: &str) -> Result<PgConnection, diesel::ConnectionError> {
         PgConnection::establish(database_url)
     }
-}
 
-impl TimeslotBackend for DatabaseInterface {
+    // TODO_SD: Remove?
     fn timeslots(&self) -> Result<Vec<Timeslot>, String> {
         let mut connection = self.connection.lock().unwrap();
 
@@ -54,6 +54,12 @@ impl TimeslotBackend for DatabaseInterface {
                 return Err("Failed to read timeslots from Database".into());
             }
         }
+    }
+}
+
+impl TimeslotBackend for DatabaseInterface {
+    fn timeslot_stream(&self) -> WatchStream<Vec<Timeslot>> {
+        unimplemented!()
     }
 
     fn book_timeslot(&self, timeslot_id: Uuid, new_booker_name: String) -> Result<(), String> {

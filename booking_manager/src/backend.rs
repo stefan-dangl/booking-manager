@@ -1,9 +1,10 @@
 use crate::types::Timeslot;
 use chrono::{DateTime, Utc};
+use tokio_stream::wrappers::WatchStream;
 use uuid::Uuid;
 
 pub trait TimeslotBackend: Clone + Send + Sync + 'static {
-    fn timeslots(&self) -> Result<Vec<Timeslot>, String>;
+    fn timeslot_stream(&self) -> WatchStream<Vec<Timeslot>>;
     fn book_timeslot(&self, id: Uuid, booker_name: String) -> Result<(), String>;
     fn add_timeslot(&self, datetime: DateTime<Utc>, notes: String) -> Result<(), String>;
     fn remove_timeslot(&self, id: Uuid) -> Result<(), String>;

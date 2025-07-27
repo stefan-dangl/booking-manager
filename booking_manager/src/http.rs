@@ -4,6 +4,7 @@ use crate::types::Timeslot;
 use axum::body::Body;
 use axum::extract::Request;
 use axum::middleware::{self, Next};
+use axum::response::sse::{Event, Sse};
 use axum::response::{Html, Response};
 use axum::routing::delete;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
@@ -12,8 +13,11 @@ use axum::{
     Router,
 };
 use chrono::{DateTime, Utc};
+use futures::stream::{self, Stream};
 use serde::{Deserialize, Serialize};
+use std::{convert::Infallible, time::Duration};
 use tokio::fs;
+use tokio_stream::StreamExt;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, error};
 use uuid::Uuid;
@@ -90,15 +94,17 @@ async fn admin_auth<T: TimeslotBackend, S: Configuration>(
     Ok(next.run(request).await)
 }
 
-// TODO_SD: Change to server send event
 async fn get_timeslots<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
-) -> impl IntoResponse {
-    debug!("Get timeslots");
-    match state.backend.timeslots() {
-        Ok(timeslots) => (StatusCode::OK, Json(timeslots)),
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])), // TODO_SD: Handle error on front end side
-    }
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    debug!("Starting SSE timeslot stream");
+
+    Sse::new(
+        state
+            .backend
+            .timeslot_stream()
+            .map(|timeslots| Ok(Event::default().json_data(timeslots).unwrap())),
+    )
 }
 
 async fn book_timeslot<T: TimeslotBackend, S: Configuration>(
