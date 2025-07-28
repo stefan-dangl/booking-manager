@@ -8,6 +8,10 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
+    #[arg(short = 't', long = "title", 
+        help = "Website Title")]
+    website_title: Option<String>,
+
     #[arg(short = 'k', long = "key", 
         help = "Authentication key for API access")]
     password: Option<String>,
@@ -28,6 +32,7 @@ struct Cli {
 
 #[derive(Clone, Debug)]
 pub struct ConfigurationHandler {
+    website_title: String,
     password: String,
     frontend_path: PathBuf,
     database_url: Option<String>,
@@ -39,6 +44,14 @@ impl ConfigurationHandler {
         let args = Cli::parse();
 
         dotenv().expect("Failed to load .env file");
+        let website_title = if let Some(website_title) = args.website_title {
+            info!("Website Title provided as argument");
+            website_title
+        } else {
+            info!("Website Title not provided as argument. Using WEBSITE_TITLE specified in \".env\".");
+            env::var("WEBSITE_TITLE").expect("WEBSITE_TITLE must be set in .env file")
+        };
+
         let password = if let Some(password) = args.password {
             info!("Password provided as argument");
             password
@@ -69,6 +82,7 @@ impl ConfigurationHandler {
         };
 
         Self {
+            website_title,
             password,
             frontend_path: PathBuf::from("../frontend/index.html"),
             database_url,
@@ -78,6 +92,10 @@ impl ConfigurationHandler {
 }
 
 impl Configuration for ConfigurationHandler {
+    fn website_title(&self) -> String {
+        self.website_title.clone()
+    }
+
     fn password(&self) -> String {
         self.password.clone()
     }

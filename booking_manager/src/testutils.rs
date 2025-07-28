@@ -124,6 +124,10 @@ impl MockConfiguration {
 }
 
 impl Configuration for MockConfiguration {
+    fn website_title(&self) -> String {
+        String::new()
+    }
+
     fn password(&self) -> String {
         self.0.password.lock().unwrap().clone()
     }

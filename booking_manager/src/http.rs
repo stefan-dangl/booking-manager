@@ -187,11 +187,13 @@ async fn get_frontend<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
 ) -> Result<Html<String>, (StatusCode, String)> {
     debug!("Get frontend");
+    let title = state.configuration.website_title();
     let path = state.configuration.frontend_path();
     let port = state.configuration.port();
 
     match fs::read_to_string(path).await {
         Ok(contents) => {
+            let contents = contents.replace("generic_timeslot_booking_manager_name", &title);
             let contents = contents.replace("localhost:PORT", &format!("localhost:{port}"));
             Ok(Html(contents))
         }
