@@ -328,27 +328,40 @@
 
         let selectedTimeslot = null;
         let adminPasswordCache = null;
+        let eventSource = null;
+
+        // Regular expressions for validation
+        const bookerNameRegex = /^[\p{L}0-9 .!?-@_]+$/u;
+        const notesRegex = /^[\p{L}0-9 .!?@_#%*\-()+=:~\n£€¥$¢]+$/u;
 
         // Load available timeslots on page load
         document.addEventListener('DOMContentLoaded', () => {
-            refreshTimeslots();
+            setupSSEConnection();
         });
 
-        // Main refresh function
-        async function refreshTimeslots() {
-            try {
-                const response = await fetch('http://localhost:PORT/timeslots');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch timeslots');
-                }
-                const slots = await response.json();
-
-                console.log(slots);
-
-                displayTimeslots(slots);
-            } catch (error) {
-                timeslotsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+        // Set up SSE connection
+        function setupSSEConnection() {
+            // Close existing connection if it exists
+            if (eventSource) {
+                eventSource.close();
             }
+
+            eventSource = new EventSource('http://localhost:PORT/timeslots');
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const slots = JSON.parse(event.data);
+                    displayTimeslots(slots);
+                } catch (error) {
+                    console.error('Error parsing SSE data:', error);
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                console.error('SSE error:', error);
+                // Attempt to reconnect after a delay
+                setTimeout(setupSSEConnection, 5000);
+            };
         }
 
         function displayTimeslots(slots) {
@@ -408,7 +421,7 @@
         }
 
         // Refresh button
-        refreshBtn.addEventListener('click', refreshTimeslots);
+        refreshBtn.addEventListener('click', setupSSEConnection);
 
         // Admin button - show password modal
         adminBtn.addEventListener('click', () => {
@@ -506,7 +519,6 @@
             }
 
             deleteAllModal.style.display = 'none';
-            refreshTimeslots();
         });
 
         // Hide delete button initially
@@ -601,7 +613,6 @@
             }
 
             addTimeslotModal.style.display = 'none';
-            refreshTimeslots();
         });
 
         cancelAddTimeslotBtn.addEventListener('click', () => {
@@ -652,7 +663,6 @@
                 alert(`Deletion error: ${error.message}`);
             }
 
-            refreshTimeslots();
             bookingForm.classList.add('hidden');
             selectedTimeslot = null;
         });
@@ -702,7 +712,6 @@
             bookingForm.reset();
             bookingForm.classList.add('hidden');
             selectedTimeslot = null;
-            refreshTimeslots();
         });
     </script>
 </body>
