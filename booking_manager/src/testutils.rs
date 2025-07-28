@@ -8,10 +8,22 @@ use std::{
 };
 
 use tokio::sync::watch::{self, Sender};
-use tokio_stream::wrappers::WatchStream;
+use tokio_stream::{wrappers::WatchStream, StreamExt};
 use uuid::Uuid;
 
 use crate::{backend::TimeslotBackend, configuration::Configuration, types::Timeslot};
+
+pub async fn read_from_timeslot_stream(
+    timeslot_stream: &mut WatchStream<Vec<Timeslot>>,
+) -> Vec<Timeslot> {
+    tokio::time::timeout(
+        std::time::Duration::from_millis(100),
+        timeslot_stream.next(),
+    )
+    .await
+    .unwrap()
+    .unwrap()
+}
 
 pub struct MockTimeslotBackendInner {
     pub success: AtomicBool,

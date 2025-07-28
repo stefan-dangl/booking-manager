@@ -123,20 +123,10 @@ impl TimeslotBackend for LocalTimeslots {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{backend::TimeslotBackend, local_timeslots::LocalTimeslots};
-    use futures::StreamExt;
-
-    async fn read_from_timeslot_stream(
-        timeslot_stream: &mut WatchStream<Vec<Timeslot>>,
-    ) -> Vec<Timeslot> {
-        tokio::time::timeout(
-            std::time::Duration::from_millis(100),
-            timeslot_stream.next(),
-        )
-        .await
-        .unwrap()
-        .unwrap()
-    }
+    use crate::{
+        backend::TimeslotBackend, local_timeslots::LocalTimeslots,
+        testutils::read_from_timeslot_stream,
+    };
 
     #[tokio::test]
     async fn test_add_book_remove_single_timeslot() {
