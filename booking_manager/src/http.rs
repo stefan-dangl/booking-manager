@@ -26,6 +26,7 @@ use tracing::{debug, error};
 use uuid::Uuid;
 use validator::Validate;
 
+// TODO_SD: Add validation to frontend
 const VALID_NAMES: &str = r"^[\p{L}0-9 .!?-@_]+$";
 const VALID_NOTES: &str = r"^[\p{L}0-9 .!?@_#%*\-()+=:~\n£€¥$¢]+$";
 

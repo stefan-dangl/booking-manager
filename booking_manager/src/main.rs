@@ -4,7 +4,6 @@ use crate::{
     configuration::Configuration, configuration_handler::ConfigurationHandler,
     database_interface::DatabaseInterface, http::create_app, local_timeslots::LocalTimeslots,
 };
-use tracing::{error, info, Level};
 use tracing_subscriber::EnvFilter;
 
 mod backend;
