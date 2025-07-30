@@ -371,8 +371,6 @@
         }
 
         function displayTimeslots(slots) {
-            // TODO_SD: Add newline for too long notes (30 characters pro line)
-
             if (slots.length === 0) {
                 timeslotsDiv.innerHTML = '<div>No timeslots available</div>';
                 return;
@@ -387,18 +385,30 @@
                 const notes = slot.notes;
                 const booker_name = slot.booker_name;
 
+                // Function to split notes into multiple lines if too long
+                const formatNotes = (text) => {
+                    if (!text) return '';
+                    const maxLength = 30;
+                    const lines = [];
+                    while (text.length > 0) {
+                        lines.push(text.substring(0, maxLength));
+                        text = text.substring(maxLength);
+                    }
+                    return lines.join('<br>');
+                };
+
                 return `
-                <div class="timeslot ${isOutdated ? 'outdated' : (isAvailable ? 'available' : 'booked')}"
-                    data-datetime="${slot.datetime}"
-                    data-available="${isAvailable}"
-                    data-outdated="${isOutdated}"
-                    data-id="${slot.id || ''}">
-                    <strong>${slotDate.toLocaleDateString()}</strong>
-                    <div>${slotDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                    <div>${notes}</div>
-                    <div>${!isAvailable ? 'Booked by ' + booker_name : (isOutdated ? 'Expired' : 'Available')}</div>
-                </div>
-                `;
+            <div class="timeslot ${isOutdated ? 'outdated' : (isAvailable ? 'available' : 'booked')}"
+                data-datetime="${slot.datetime}"
+                data-available="${isAvailable}"
+                data-outdated="${isOutdated}"
+                data-id="${slot.id || ''}">
+                <strong>${slotDate.toLocaleDateString()}</strong>
+                <div>${slotDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                <div>${formatNotes(notes)}</div>
+                <div>${!isAvailable ? 'Booked by ' + booker_name : (isOutdated ? 'Expired' : 'Available')}</div>
+            </div>
+            `;
             }).join('');
 
             // Add click event listeners to timeslots
@@ -427,7 +437,6 @@
                 });
             });
         }
-
 
         // Input validation functions
         function validateBookerName() {
@@ -706,7 +715,7 @@
 
             try {
                 const response = await fetch('http://localhost:PORT/remove', {
-                    method: 'POST',
+                    method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',
                         'x-admin-password': adminPasswordCache

@@ -30,7 +30,7 @@ async fn main() {
     let configuration = ConfigurationHandler::parse_arguments();
 
     let address = format!("127.0.0.1:{}", configuration.port());
-    println!("Accessable at:\n{}/frontend", address.clone());
+    println!("Accessable at:\n{}", address.clone());
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
     let app = if let Some(database_url) = configuration.database_url() {

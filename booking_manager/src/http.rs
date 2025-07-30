@@ -26,7 +26,6 @@ use tracing::{debug, error};
 use uuid::Uuid;
 use validator::Validate;
 
-// TODO_SD: Add validation to frontend
 const VALID_NAMES: &str = r"^[\p{L}0-9 .!?-@_]+$";
 const VALID_NOTES: &str = r"^[\p{L}0-9 .!?@_#%*\-()+=:~\n£€¥$¢]+$";
 
@@ -50,7 +49,7 @@ struct BookingRequest {
 struct AddTimeslotRequest {
     datetime: DateTime<Utc>,
     #[validate(
-        length(min = 0, max = 60),
+        length(min = 1, max = 60),
         regex(path = Regex::new(VALID_NOTES).unwrap(), message = "Invalid characters in notes")
     )]
     notes: String,
@@ -73,7 +72,7 @@ pub fn create_app<T: TimeslotBackend, S: Configuration>(backend: T, configuratio
         .allow_headers(Any);
 
     let public = Router::new()
-        .route("/frontend", get(get_frontend))
+        .route("/", get(get_frontend))
         .route("/timeslots", get(get_timeslots))
         .route("/book", post(book_timeslot));
 
@@ -139,7 +138,6 @@ async fn book_timeslot<T: TimeslotBackend, S: Configuration>(
     }
 }
 
-// TODO_SD: Filter out special characters, limit length
 async fn add_timeslot<T: TimeslotBackend, S: Configuration>(
     State(state): State<AppState<T, S>>,
     Json(timeslot): Json<AddTimeslotRequest>,
@@ -213,17 +211,20 @@ async fn get_admin_page() -> impl IntoResponse {
 mod test {
     use super::*;
     use crate::testutils::{MockConfiguration, MockTimeslotBackend};
+    use axum::body::Bytes;
     use axum::http::{response, StatusCode};
     use axum::serve::Serve;
     use chrono::Local;
     use futures::TryStreamExt;
     use mockall::predicate::*;
-    use reqwest::Client;
+    use reqwest::{Client, Error};
     use std::io::Write;
     use std::net::SocketAddr;
+    use std::pin;
     use std::{collections::HashMap, path::PathBuf, sync::atomic::Ordering, time::Duration};
     use tempfile::NamedTempFile;
     use tokio::net::TcpListener;
+    use tokio::time::timeout;
     use tokio::{task::JoinHandle, time::sleep};
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -418,11 +419,7 @@ mod test {
         *mock_configuration.0.frontend_path.lock().unwrap() = tmp_file.path().to_path_buf();
 
         let client = Client::new();
-        let response = client
-            .get(format!("http://{addr}/frontend"))
-            .send()
-            .await
-            .unwrap();
+        let response = client.get(format!("http://{addr}/")).send().await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK.as_u16());
         assert_eq!(
@@ -441,78 +438,71 @@ mod test {
         server.abort();
     }
 
+    async fn read_from_sse(
+        stream: &mut (impl Stream<Item = Result<Bytes, Error>> + Unpin),
+    ) -> Vec<Timeslot> {
+        let raw_data = timeout(Duration::from_millis(100), stream.next())
+            .await
+            .unwrap();
+        let data = String::from_utf8(raw_data.unwrap().unwrap().to_vec()).unwrap();
+        let json_str = data.strip_prefix("data: ").unwrap();
+        serde_json::from_str(json_str.trim()).unwrap()
+    }
+
     // TODO_SD: Fix test
-    // #[tokio::test]
-    // async fn test_get_timeslots() {
-    //     let (server, addr, mock_backend, _) = init().await;
+    #[tokio::test]
+    async fn test_get_timeslots() {
+        let (server, addr, mock_backend, _) = init().await;
 
-    //     let timeslots = vec![
-    //         Timeslot {
-    //             id: Uuid::new_v4(),
-    //             datetime: Utc::now(),
-    //             available: true,
-    //             booker_name: String::new(),
-    //             notes: "First Timeslot".into(),
-    //         },
-    //         Timeslot {
-    //             id: Uuid::new_v4(),
-    //             datetime: Utc::now(),
-    //             available: false,
-    //             booker_name: "Stefan".into(),
-    //             notes: "Second Timeslot".into(),
-    //         },
-    //     ];
+        let timeslots = vec![
+            Timeslot {
+                id: Uuid::new_v4(),
+                datetime: Utc::now(),
+                available: true,
+                booker_name: String::new(),
+                notes: "First Timeslot".into(),
+            },
+            Timeslot {
+                id: Uuid::new_v4(),
+                datetime: Utc::now() + Duration::from_secs(1),
+                available: false,
+                booker_name: "Stefan".into(),
+                notes: "Second Timeslot".into(),
+            },
+        ];
 
-    //     let client = Client::new();
-    //     let response = client
-    //         .get(format!("http://{addr}/timeslots"))
-    //         .send()
-    //         .await
-    //         .unwrap();
+        let client = Client::new();
+        let response = client
+            .get(format!("http://{addr}/timeslots"))
+            .header("Accept", "text/event-stream")
+            .send()
+            .await
+            .unwrap();
 
-    //     // mock_backend.0.timeslot_sender.send(timeslots).unwrap();
+        assert_eq!(response.status(), StatusCode::OK.as_u16());
+        assert_eq!(
+            response
+                .headers()
+                .get("content-type")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "text/event-stream"
+        );
 
-    //     assert_eq!(response.status(), StatusCode::OK.as_u16());
-    //     assert_eq!(
-    //         response
-    //             .headers()
-    //             .get("content-type")
-    //             .unwrap()
-    //             .to_str()
-    //             .unwrap(),
-    //         "text/event-stream"
-    //     );
+        let mut stream = response.bytes_stream();
 
-    //     let mut sse_stream = response.bytes_stream().into_async_read();
+        mock_backend
+            .0
+            .timeslot_sender
+            .send(timeslots.clone())
+            .unwrap();
 
-    //     // Create an SSE decoder
-    //     let mut decoder = async_sse::decode(&mut sse_stream);
+        let data = read_from_sse(&mut stream).await;
+        assert!(data.is_empty());
+        let data = read_from_sse(&mut stream).await;
+        assert_eq!(data, timeslots);
 
-    //     // Send the test data (this should trigger an SSE event)
-    //     mock_backend
-    //         .0
-    //         .timeslot_sender
-    //         .send(timeslots.clone())
-    //         .unwrap();
-
-    //     // Read the first event
-    //     if let Some(event) = decoder.next().await {
-    //         let event = event.unwrap();
-    //         assert_eq!(event.name(), "message"); // or whatever event name you're using
-
-    //         // Parse the JSON data
-    //         let received_timeslots: Vec<Timeslot> = from_str(&event.data()).unwrap();
-    //         assert_eq!(received_timeslots, timeslots);
-    //     } else {
-    //         panic!("No SSE event received");
-    //     }
-
-    //     // let response_content = response.text().await.unwrap();
-    //     // let response_content: Vec<Timeslot> = serde_json::from_str(&response_content).unwrap();
-    //     // assert_eq!(response_content.len(), 2);
-    //     // assert!(response_content.contains(&timeslots[0]));
-    //     // assert!(response_content.contains(&timeslots[1]));
-
-    //     server.abort();
-    // }
+        server.abort();
+    }
 }
