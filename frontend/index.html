@@ -38,6 +38,12 @@
             opacity: 0.9;
         }
 
+        button:disabled {
+            background-color: #cccccc !important;
+            cursor: not-allowed;
+            opacity: 1;
+        }
+
         #refreshBtn {
             background-color: #2196F3;
         }
@@ -128,7 +134,6 @@
 
         .booked {
             background-color: #ffebee;
-            cursor: not-allowed;
         }
 
         .selected {
@@ -138,7 +143,10 @@
 
         .outdated {
             background-color: #dedede;
-            cursor: not-allowed;
+        }
+
+        .admin-selected {
+            border: 2px dashed #673AB7;
         }
 
         form {
@@ -301,6 +309,7 @@
         const timeslotsDiv = document.getElementById('timeslots');
         const bookingForm = document.getElementById('bookingForm');
         const selectedSlotDisplay = document.getElementById('selectedSlotDisplay');
+        const confirmBookingBtn = document.getElementById('confirmBookingBtn');
 
         const deleteTimeslotBtn = document.getElementById('deleteTimeslotBtn');
         const cancelBookingBtn = document.getElementById('cancelBookingBtn');
@@ -414,25 +423,51 @@
             // Add click event listeners to timeslots
             document.querySelectorAll('.timeslot').forEach(slot => {
                 slot.addEventListener('click', () => {
-                    // Prevent selection if booked or outdated
-                    if (slot.classList.contains('booked') || slot.dataset.outdated === 'true') {
-                        return;
-                    }
+                    const isBooked = slot.classList.contains('booked');
+                    const isOutdated = slot.dataset.outdated === 'true';
 
-                    // Rest of your existing click handler...
-                    if (slot.classList.contains('selected')) {
-                        slot.classList.remove('selected');
-                        selectedTimeslot = null;
-                        bookingForm.classList.add('hidden');
-                        deleteTimeslotBtn.classList.toggle('hidden', !adminPasswordCache);
-                    } else {
-                        document.querySelectorAll('.timeslot').forEach(s => {
-                            s.classList.remove('selected');
-                        });
-                        slot.classList.add('selected');
-                        selectedTimeslot = slot.dataset;
-                        selectedSlotDisplay.textContent = new Date(selectedTimeslot.datetime).toLocaleString();
-                        bookingForm.classList.remove('hidden');
+                    // If admin is logged in, allow selection of any timeslot
+                    if (adminPasswordCache) {
+                        // Toggle selection
+                        if (slot.classList.contains('admin-selected')) {
+                            slot.classList.remove('admin-selected');
+                            selectedTimeslot = null;
+                            bookingForm.classList.add('hidden');
+                        } else {
+                            document.querySelectorAll('.timeslot').forEach(s => {
+                                s.classList.remove('selected');
+                                s.classList.remove('admin-selected');
+                            });
+                            slot.classList.add('admin-selected');
+                            selectedTimeslot = slot.dataset;
+                            selectedSlotDisplay.textContent = new Date(selectedTimeslot.datetime).toLocaleString();
+                            bookingForm.classList.remove('hidden');
+
+                            // Disable booking button if timeslot is booked or outdated
+                            confirmBookingBtn.disabled = isBooked || isOutdated;
+                        }
+                    }
+                    // Regular user - only allow selection of available timeslots
+                    else {
+                        // Prevent selection if booked or outdated
+                        if (isBooked || isOutdated) {
+                            return;
+                        }
+
+                        // Toggle selection
+                        if (slot.classList.contains('selected')) {
+                            slot.classList.remove('selected');
+                            selectedTimeslot = null;
+                            bookingForm.classList.add('hidden');
+                        } else {
+                            document.querySelectorAll('.timeslot').forEach(s => {
+                                s.classList.remove('selected');
+                            });
+                            slot.classList.add('selected');
+                            selectedTimeslot = slot.dataset;
+                            selectedSlotDisplay.textContent = new Date(selectedTimeslot.datetime).toLocaleString();
+                            bookingForm.classList.remove('hidden');
+                        }
                     }
                 });
             });
@@ -553,11 +588,19 @@
             deleteTimeslotBtn.classList.add('hidden');
             logoutBtn.classList.add('hidden');
             adminBtn.classList.remove('hidden');
+            bookingForm.classList.add('hidden');
+
+            // Clear any selected timeslots
+            document.querySelectorAll('.timeslot').forEach(s => {
+                s.classList.remove('selected');
+                s.classList.remove('admin-selected');
+            });
+            selectedTimeslot = null;
         });
 
         // Delete All timeslots
         deleteAllBtn.addEventListener('click', () => {
-            console.log("Cancle Delete all ")
+            console.log("Cancel Delete all ")
             deleteAllModal.style.display = 'block';
         });
 
@@ -743,6 +786,7 @@
             bookingForm.classList.add('hidden');
             document.querySelectorAll('.timeslot').forEach(s => {
                 s.classList.remove('selected');
+                s.classList.remove('admin-selected');
             });
             selectedTimeslot = null;
         });
@@ -791,4 +835,5 @@
         });
     </script>
 </body>
+
 </html>
