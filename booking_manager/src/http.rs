@@ -1,6 +1,5 @@
 use crate::backend::TimeslotBackend;
 use crate::configuration::Configuration;
-use crate::types::Timeslot;
 use axum::body::Body;
 use axum::extract::Request;
 use axum::middleware::{self, Next};
@@ -12,13 +11,11 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use axum_valid::Valid;
 use chrono::{DateTime, Utc};
-use futures::stream::{self, Stream};
-use lazy_static::lazy_static;
+use futures::stream::Stream;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{convert::Infallible, time::Duration};
+use std::convert::Infallible;
 use tokio::fs;
 use tokio_stream::StreamExt;
 use tower_http::cors::{Any, CorsLayer};
@@ -129,7 +126,7 @@ async fn book_timeslot<T: TimeslotBackend, S: Configuration>(
     debug!("Book timeslot");
     if let Err(err) = booking.validate() {
         error!(?err, "Invalid input");
-        return (StatusCode::BAD_REQUEST, format!("Invalid input: {:?}", err));
+        return (StatusCode::BAD_REQUEST, format!("Invalid input: {err:?}"));
     }
 
     match state.backend.book_timeslot(booking.id, booking.client_name) {
@@ -146,7 +143,7 @@ async fn add_timeslot<T: TimeslotBackend, S: Configuration>(
 
     if let Err(err) = timeslot.validate() {
         error!(?err, "Invalid input");
-        return (StatusCode::BAD_REQUEST, format!("Invalid input: {:?}", err));
+        return (StatusCode::BAD_REQUEST, format!("Invalid input: {err:?}"));
     }
 
     match state
@@ -197,7 +194,7 @@ async fn get_frontend<T: TimeslotBackend, S: Configuration>(
             Ok(Html(contents))
         }
         Err(e) => {
-            let error_message = format!("Failed to read frontend file: {}", e);
+            let error_message = format!("Failed to read frontend file: {e}");
             Err((StatusCode::INTERNAL_SERVER_ERROR, error_message))
         }
     }
@@ -211,21 +208,18 @@ async fn get_admin_page() -> impl IntoResponse {
 mod test {
     use super::*;
     use crate::testutils::{MockConfiguration, MockTimeslotBackend};
+    use crate::types::Timeslot;
     use axum::body::Bytes;
-    use axum::http::{response, StatusCode};
-    use axum::serve::Serve;
-    use chrono::Local;
-    use futures::TryStreamExt;
+    use axum::http::StatusCode;
     use mockall::predicate::*;
     use reqwest::{Client, Error};
     use std::io::Write;
     use std::net::SocketAddr;
-    use std::pin;
-    use std::{collections::HashMap, path::PathBuf, sync::atomic::Ordering, time::Duration};
+    use std::{sync::atomic::Ordering, time::Duration};
     use tempfile::NamedTempFile;
     use tokio::net::TcpListener;
+    use tokio::task::JoinHandle;
     use tokio::time::timeout;
-    use tokio::{task::JoinHandle, time::sleep};
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     struct EmptyRequest {}
@@ -449,7 +443,6 @@ mod test {
         serde_json::from_str(json_str.trim()).unwrap()
     }
 
-    // TODO_SD: Fix test
     #[tokio::test]
     async fn test_get_timeslots() {
         let (server, addr, mock_backend, _) = init().await;

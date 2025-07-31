@@ -1,5 +1,5 @@
 use crate::schema::timeslots;
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

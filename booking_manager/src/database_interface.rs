@@ -56,7 +56,7 @@ impl DatabaseInterface {
             Ok(current_timeslots) => Ok(current_timeslots),
             Err(err) => {
                 error!(?err, "Failed to read timeslots from Database");
-                return Err("Failed to read timeslots from Database".into());
+                Err("Failed to read timeslots from Database".into())
             }
         }
     }
@@ -114,7 +114,7 @@ impl TimeslotBackend for DatabaseInterface {
         match result {
             Ok(0) => {
                 error!("Deletion failed. 0 database lines were changed");
-                return Err("Database Error. Deletion of timeslot failed".into());
+                Err("Database Error. Deletion of timeslot failed".into())
             }
             Ok(_) => {
                 self.send_timeslots();
@@ -122,7 +122,7 @@ impl TimeslotBackend for DatabaseInterface {
             }
             Err(err) => {
                 error!(?err, "Deletion of timeslot failed");
-                return Err("Database Error. Deletion of timeslot failed".into());
+                Err("Database Error. Deletion of timeslot failed".into())
             }
         }
     }
