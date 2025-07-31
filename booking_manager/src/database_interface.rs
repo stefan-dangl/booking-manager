@@ -1,6 +1,8 @@
-use crate::schema::timeslots::dsl::*;
 use crate::types::Timeslot;
-use crate::{backend::TimeslotBackend, schema::timeslots};
+use crate::{
+    backend::TimeslotBackend,
+    schema::timeslots::dsl::{available, booker_name, datetime, timeslots},
+};
 use chrono::{DateTime, Utc};
 use diesel::{Connection, ConnectionError, ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};
 use std::sync::{Arc, Mutex};

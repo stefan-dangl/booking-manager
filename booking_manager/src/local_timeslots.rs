@@ -62,26 +62,23 @@ impl TimeslotBackend for LocalTimeslots {
     }
 
     fn book_timeslot(&self, id: Uuid, booker_name: String) -> Result<(), String> {
-        match self.timeslots.lock().unwrap().get_mut(&id) {
-            Some(timeslot) => {
-                if !timeslot.available {
-                    let err = "Timeslot was already booked";
-                    error!(err);
-                    return Err(err.into());
-                }
-                if timeslot.datetime < Utc::now() {
-                    let err = "Timeslot already passed";
-                    error!(err);
-                    return Err(err.into());
-                }
-                timeslot.available = false;
-                timeslot.booker_name = booker_name
-            }
-            None => {
-                let err = "Timeslot does not exist and can't therefore not be booked";
+        if let Some(timeslot) = self.timeslots.lock().unwrap().get_mut(&id) {
+            if !timeslot.available {
+                let err = "Timeslot was already booked";
                 error!(err);
                 return Err(err.into());
             }
+            if timeslot.datetime < Utc::now() {
+                let err = "Timeslot already passed";
+                error!(err);
+                return Err(err.into());
+            }
+            timeslot.available = false;
+            timeslot.booker_name = booker_name;
+        } else {
+            let err = "Timeslot does not exist and can't therefore not be booked";
+            error!(err);
+            return Err(err.into());
         }
         self.send_timeslots();
         Ok(())
