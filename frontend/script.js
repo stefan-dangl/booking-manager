@@ -62,7 +62,7 @@ function setupTimeslotUpdate() {
         eventSource.close();
     }
 
-    eventSource = new EventSource('http://localhost:PORT/timeslots');
+    eventSource = new EventSource('http://0.0.0.0:PORT/timeslots');
 
     eventSource.onmessage = (event) => {
         try {
@@ -224,7 +224,7 @@ submitPasswordBtn.addEventListener('click', async () => {
     }
 
     try {
-        const response = await fetch('http://localhost:PORT/admin_page', {
+        const response = await fetch('http://0.0.0.0:PORT/admin_page', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -284,7 +284,7 @@ confirmDeleteAllBtn.addEventListener('click', async () => {
             throw new Error('No admin credentials available');
         }
 
-        const response = await fetch('http://localhost:PORT/remove_all', {
+        const response = await fetch('http://0.0.0.0:PORT/remove_all', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -366,7 +366,7 @@ addTimeslotForm.addEventListener('submit', async (e) => {
         const datetime = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T` +
             `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00.${microseconds}${timeZoneString}`;
 
-        const response = await fetch('http://localhost:PORT/add', {
+        const response = await fetch('http://0.0.0.0:PORT/add', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -412,7 +412,7 @@ deleteTimeslotBtn.addEventListener('click', async () => {
             throw new Error('No admin credentials available');
         }
 
-        const response = await fetch('http://localhost:PORT/remove', {
+        const response = await fetch('http://0.0.0.0:PORT/remove', {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
@@ -460,7 +460,7 @@ bookingForm.addEventListener('submit', async (e) => {
     }
 
     try {
-        const response = await fetch('http://localhost:PORT/book', {
+        const response = await fetch('http://0.0.0.0:PORT/book', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

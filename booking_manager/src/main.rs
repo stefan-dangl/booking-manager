@@ -29,7 +29,7 @@ async fn main() {
 
     let configuration = ConfigurationHandler::parse_arguments();
 
-    let address = format!("127.0.0.1:{}", configuration.port());
+    let address = format!("0.0.0.0:{}", configuration.port());
     println!("Accessable at:\n{}", address.clone());
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
