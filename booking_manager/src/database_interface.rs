@@ -1,8 +1,6 @@
+use crate::schema::timeslots::dsl::*;
 use crate::types::Timeslot;
-use crate::{
-    backend::TimeslotBackend,
-    schema::timeslots::dsl::{available, booker_name, datetime, timeslots},
-};
+use crate::{backend::TimeslotBackend, schema::timeslots};
 use chrono::{DateTime, Utc};
 use diesel::{Connection, ConnectionError, ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};
 use std::sync::{Arc, Mutex};
@@ -12,7 +10,7 @@ use tracing::error;
 use uuid::Uuid;
 
 #[derive(Insertable)]
-#[table_name = "timeslots"]
+#[diesel(table_name = timeslots)]
 pub struct NewTimeslot {
     pub datetime: DateTime<Utc>,
     pub notes: String,
