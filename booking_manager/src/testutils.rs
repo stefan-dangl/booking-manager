@@ -1,17 +1,13 @@
+use crate::{backend::TimeslotBackend, configuration::Configuration, types::Timeslot};
 use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
     },
 };
-
 use tokio::sync::watch::{self, Sender};
 use tokio_stream::{wrappers::WatchStream, StreamExt};
-use uuid::Uuid;
-
-use crate::{backend::TimeslotBackend, configuration::Configuration, types::Timeslot};
 
 pub async fn read_from_timeslot_stream(
     timeslot_stream: &mut WatchStream<Vec<Timeslot>>,
