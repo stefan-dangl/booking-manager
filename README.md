@@ -37,30 +37,19 @@ My friend is teacher at a high school. For their project week they held some IT-
 
 ## How to run
 
-### Configuration
+### Docker (recommended)
 
-You can configure the booking manager either by adapting the **.env** file or by adding command line arguments. For help enter: 
-``` Bash
-$ cargo run -- -h
+```Bash
+$ cd src
+$ docker-compose up
 ```
-    
-- Following can be configured:
-    - Website title
-        - By default the title is "Timeslot Booking Manager". You can change it to whatever you like. E.g. "IT Project Week"
-    - Password
-        - When requesting Admin rights, the password specified here has to be entered
-    - Database Url
-        - In case you want to run the booking manager in persistent mode, you can define the url of your database here. Alternatively, you can run the booking manager without database. Then, when shutting down the application, all the timeslots will be gone.
-    - Port
-        - Defines on which port the booking manager runs
 
-
-### Run natively
+### Natively
 
 1) Setup rust
 2) navigate to the rust project: 
     ``` Bash
-    $ cd booking_manager
+    $ cd src
     ```
 3) to execute the application enter: 
     ``` Bash
@@ -77,6 +66,19 @@ $ cargo run -- -h
         - `dir = "~/personal_repos/rust/booking-manager/booking_manager/migrations"` has to be adapted according to your system
 
 
-#### Run in docker
+### Configuration
 
-Todo
+You can configure the booking manager either by adapting the **.env** file or by adding command line arguments. For help enter: 
+``` Bash
+$ cargo run -- -h
+```
+    
+- Following can be configured:
+    - Website title
+        - By default the title is "Timeslot Booking Manager". You can change it to whatever you like. E.g. "IT Project Week"
+    - Password
+        - When requesting Admin rights, the password specified here has to be entered
+    - Database Url
+        - In case you want to run the booking manager in persistent mode, you can define the url of your database here. Alternatively, you can run the booking manager without database. Then, when shutting down the application, all the timeslots will be gone.
+    - Port
+        - Defines on which port the booking manager runs

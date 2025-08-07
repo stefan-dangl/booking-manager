@@ -71,7 +71,9 @@ impl DatabaseInterface {
 
 impl TimeslotBackend for DatabaseInterface {
     fn timeslot_stream(&self) -> WatchStream<Vec<Timeslot>> {
-        WatchStream::new(self.sender.subscribe())
+        let stream = WatchStream::new(self.sender.subscribe());
+        self.send_timeslots();
+        stream
     }
 
     fn book_timeslot(&self, timeslot_id: Uuid, new_booker_name: String) -> Result<(), String> {

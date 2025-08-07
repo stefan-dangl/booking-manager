@@ -190,7 +190,7 @@ async fn get_frontend<T: TimeslotBackend, S: Configuration>(
     match fs::read_to_string(path).await {
         Ok(contents) => {
             let contents = contents.replace("generic_timeslot_booking_manager_name", &title);
-            let contents = contents.replace("0.0.0.0:PORT", &format!("0.0.0.0:{port}"));
+            let contents = contents.replace("0.0.0.0:PORT", &format!("192.168.0.248:{port}"));
             Ok(Html(contents))
         }
         Err(e) => {

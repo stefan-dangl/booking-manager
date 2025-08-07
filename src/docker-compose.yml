@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  booking_db:
+    image: postgres:15
+    container_name: booking_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_DB: booking_manager
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - booking_network
+    healthcheck: 
+      test: ["CMD-SHELL", "pg_isready -U admin -d booking_manager"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  booking_manager:
+    build: .
+    container_name: booking_manager
+    depends_on:
+      - booking_db
+    ports:
+      - "${PORT}:${PORT}"
+    networks:
+      - booking_network
+    command: ./booking_manager -t "${WEBSITE_TITEL}" -k 123 -p ${PORT} -d postgres://admin:super_secure_password@booking_db:5432/booking_manager
+
+networks:
+  booking_network:
+    name: booking_network

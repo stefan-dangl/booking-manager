@@ -43,6 +43,7 @@ impl ConfigurationHandler {
     pub fn parse_arguments() -> Self {
         let args = Cli::parse();
 
+        // TODO_SD: Properly read env from inside docker
         dotenv().expect("Failed to load .env file");
         let website_title = if let Some(website_title) = args.website_title {
             info!("Website Title provided as argument");
@@ -84,7 +85,7 @@ impl ConfigurationHandler {
         Self {
             website_title,
             password,
-            frontend_path: PathBuf::from("../frontend/index.html"),
+            frontend_path: PathBuf::from("frontend/index.html"),
             database_url,
             port,
         }

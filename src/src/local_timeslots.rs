@@ -58,7 +58,9 @@ impl LocalTimeslots {
 
 impl TimeslotBackend for LocalTimeslots {
     fn timeslot_stream(&self) -> WatchStream<Vec<Timeslot>> {
-        WatchStream::new(self.sender.subscribe())
+        let stream = WatchStream::new(self.sender.subscribe());
+        self.send_timeslots();
+        stream
     }
 
     fn book_timeslot(&self, id: Uuid, booker_name: String) -> Result<(), String> {

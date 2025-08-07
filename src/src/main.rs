@@ -1,9 +1,13 @@
 #[macro_use]
 extern crate diesel;
+use std::time::Duration;
+
 use crate::{
     configuration::Configuration, configuration_handler::ConfigurationHandler,
     database_interface::DatabaseInterface, http::create_app, local_timeslots::LocalTimeslots,
 };
+use tokio::time::sleep;
+use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
 mod backend;
@@ -34,7 +38,18 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
     let app = if let Some(database_url) = configuration.database_url() {
-        let backend = DatabaseInterface::new(&database_url).expect("Failed to establish database connection. Terminating the program. You may want to restart it with database disabled (impersistent timeslots).");
+        let backend = loop {
+            match DatabaseInterface::new(&database_url) {
+                Ok(backend) => {
+                    info!("Successfully connected to database");
+                    break backend;
+                }
+                Err(err) => {
+                    error!(?err, "Failed to establish database connection: {database_url}. Retry in 1 sec. You may want to restart it with database disabled (impersistent timeslots).");
+                    sleep(Duration::from_secs(1)).await;
+                }
+            }
+        };
         create_app(backend, configuration)
     } else {
         let backend = LocalTimeslots::default();
