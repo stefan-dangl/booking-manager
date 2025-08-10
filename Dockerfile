@@ -12,20 +12,16 @@ RUN apt-get update && \
 RUN USER=root cargo new --bin booking_manager
 WORKDIR /booking_manager
 
-# Copy your manifests
-COPY ./Cargo.toml ./Cargo.toml
-COPY ./Cargo.lock ./Cargo.lock
+# Copy manifests
+COPY src/Cargo.toml ./Cargo.toml
+COPY src/Cargo.lock ./Cargo.lock
 
-# Install Diesel CLI (if needed for migrations)
-RUN cargo install diesel_cli --no-default-features --features postgres
-
-# This build step will cache your dependencies
+# cache dependencies
 RUN cargo build --release
 RUN rm src/*.rs
 
-# Copy your source tree
-COPY ./src ./src
-# COPY ./migrations ./migrations  # If you use Diesel migrations
+# Copy source tree
+COPY src/src ./src
 
 # Build for release
 RUN rm ./target/release/deps/booking_manager*
@@ -44,9 +40,4 @@ RUN apt-get update && \
 # Copy the build artifacts from the build stage
 COPY --from=builder /booking_manager/target/release/booking_manager .
 COPY ./.env .
-COPY ./frontend ./frontend
-COPY ./migrations ./migrations
-# COPY --from=builder /usr/local/cargo/bin/diesel /usr/local/bin/diesel  # If you need diesel CLI
-
-
-# Set the startup command to run your binary
+COPY src/frontend ./frontend

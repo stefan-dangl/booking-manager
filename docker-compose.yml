@@ -9,6 +9,7 @@ services:
       POSTGRES_DB: booking_manager
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
+      - ./postgres_data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d
     networks:
       - booking_network

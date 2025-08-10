@@ -1,20 +1,30 @@
 # booking-manager
 
-A simple, self hostable booking tool written in Rust
+A lightweight, privacy-focused booking system designed for small-scale events.
 
 ## Background
 
-My friend is teacher at a high school. For their project week they held some IT-related workshops. To organize everything properly I decided to help them with this very easy to use, device agnostic booking tool.
+My friend is teacher at a high school. During their IT focused project week, they needed a simple way to manage workshop registrations across different devices. 
+
+This project focuses on:
+- Full control over data (self-hosted)
+- Zero-friction access from any device
+- Just enough features to solve the problem without complexity
 
 
 ## How to use
 
 ### Client
 
-- Open the address where the server is hosted in your browser
-- As client you are able to select existing timeslots and book them by entering your name
-- Timeslots are automatically updated on all devices connected to the server. In case you lose connection to the server you may have to press the `Refresh Timeslots` button or reload the website
-- When a timeslot gets booked or outdates, its color changes. In this case the timeslot is not selectable by the client. 
+1) Access the System
+    - Open the server’s address in any modern web browser.
+2) Book a Timeslot
+    - Browse available timeslots and reserve one by entering your name.
+3) Real-Time Updates
+    - Timeslots are synchronized across all connected devices.
+    - If your connection drops, manually refresh using the "Refresh Timeslots" button or reload the page.
+4) Visual Feedback
+    - Booked or expired timeslots change color and become unavailable for selection.
 <p align="center">
 <img src="docs/images/client_view.png" alt="Client view" width="800"  />
   <figcaption style="font-style: italic; margin-top: 8px;">
@@ -23,11 +33,14 @@ My friend is teacher at a high school. For their project week they held some IT-
 </p>
 
 ### Admin
-- When pressing the Admin button you are requested to enter a password. When entering the correct password the admin features are enabled:
-    - Add new Timeslots
+1) Authentication
+    - Click the admin button and enter the password to unlock admin rights 
+2) Admin rights
+    - Add new timeslots
     - Delete selected timeslots
-    - Delete all Timeslots
-- You don't have to manually delete outdated Timeslots. A specific time (currently 1 day) after the timeslot has expiried it's automatically removed.
+    - Delete all timeslots
+3) Automatic Cleanup
+    - Expired timeslots (older than 1 day) are removed automatically. No manual maintenance needed.
 <p align="center">
 <img src="docs/images/admin_view.png" alt="Admin view" width="800"  />
   <figcaption style="font-style: italic; margin-top: 8px;">
@@ -46,24 +59,26 @@ $ docker-compose up
 ### Natively
 
 1) Setup rust (>= v1.88)
-2) to execute the application enter: 
+2) Navigate to the rust project: 
+    ``` Bash
+    $ cd src
+    ```
+3) To execute the application enter: 
     ``` Bash
     $ cargo run
     ```
-3) In case you want your timeslots to be persistent you need to provide a postgres database:
+4) In case you want your timeslots to be persistent you need to provide a postgres database:
     - Install Postgres Database and Diesel
-    - adapt **.env** file according to your database
+    - adapt **.env** and **src/diesel.toml** file according to your system
     - run migration to configure your database: 
     ``` Bash
     $ diesel migration run
     ``` 
-    - adapt **booking_manager/diesel.toml**:
-        - `dir = "~/personal_repos/rust/booking-manager/booking_manager/migrations"` has to be adapted according to your system
 
 
 ### Configuration
 
-You can configure the booking manager either by adapting the **.env** file or by adding command line arguments. For help enter: 
+You can configure the Booking Manager either by adapting the **.env** file or by adding command line arguments. For help enter: 
 ``` Bash
 $ cargo run -- -h
 ```
@@ -73,7 +88,7 @@ $ cargo run -- -h
         - By default the title is "Timeslot Booking Manager". You can change it to whatever you like. E.g. "IT Project Week"
     - Password
         - When requesting Admin rights, the password specified here has to be entered
-    - Database Url
-        - In case you want to run the booking manager in persistent mode, you can define the url of your database here. Alternatively, you can run the booking manager without database. Then, when shutting down the application, all the timeslots will be gone.
+    - Database Url and password
+        - In case you want to run the Booking Manager in persistent mode, you can define the url and password of your database here. Alternatively, you can run the Booking Manager without database.
     - Port
-        - Defines on which port the booking manager runs
+        - Defines on which port the Booking Manager runs
