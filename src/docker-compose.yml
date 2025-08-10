@@ -28,7 +28,7 @@ services:
       - "${PORT}:${PORT}"
     networks:
       - booking_network
-    command: ./booking_manager -t "${WEBSITE_TITEL}" -k 123 -p ${PORT} -d postgres://admin:super_secure_password@booking_db:5432/booking_manager
+    command: ./booking_manager -t "${WEBSITE_TITLE}" -k 123 -p ${PORT} -d postgres://admin:super_secure_password@booking_db:5432/booking_manager
 
 networks:
   booking_network:

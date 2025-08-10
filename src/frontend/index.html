@@ -353,6 +353,9 @@
         document.getElementById('name').addEventListener('input', validateBookerName);
         document.getElementById('newNotes').addEventListener('input', validateNewNotes);
 
+        const apiAddress = `${window.location.protocol}//${window.location.hostname}:${window.location.port || 80}`;
+        console.log("apiAddress: ", apiAddress);
+
         let selectedTimeslot = null;
         let adminPasswordCache = null;
         let eventSource = null;
@@ -365,7 +368,7 @@
                     eventSource.close();
                 }
 
-                eventSource = new EventSource('http://0.0.0.0:PORT/timeslots');
+                eventSource = new EventSource(`${apiAddress}/timeslots`);
 
                 eventSource.onmessage = (event) => {
                     try {
@@ -527,7 +530,7 @@
                 }
 
                 try {
-                    const response = await fetch('http://0.0.0.0:PORT/admin_page', {
+                    const response = await fetch(`${apiAddress}/admin_page`, {
                         method: 'GET',
                         headers: {
                             'Content-Type': 'application/json',
@@ -587,7 +590,7 @@
                         throw new Error('No admin credentials available');
                     }
 
-                    const response = await fetch('http://0.0.0.0:PORT/remove_all', {
+                    const response = await fetch(`${apiAddress}/remove_all`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -669,7 +672,7 @@
                     const datetime = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T` +
                         `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00.${microseconds}${timeZoneString}`;
 
-                    const response = await fetch('http://0.0.0.0:PORT/add', {
+                    const response = await fetch(`${apiAddress}/add`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -715,7 +718,7 @@
                         throw new Error('No admin credentials available');
                     }
 
-                    const response = await fetch('http://0.0.0.0:PORT/remove', {
+                    const response = await fetch(`${apiAddress}/remove`, {
                         method: 'DELETE',
                         headers: {
                             'Content-Type': 'application/json',
@@ -763,7 +766,7 @@
                 }
 
                 try {
-                    const response = await fetch('http://0.0.0.0:PORT/book', {
+                    const response = await fetch(`${apiAddress}/book`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

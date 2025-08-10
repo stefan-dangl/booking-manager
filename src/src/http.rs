@@ -185,12 +185,10 @@ async fn get_frontend<T: TimeslotBackend, S: Configuration>(
     debug!("Get frontend");
     let title = state.configuration.website_title();
     let path = state.configuration.frontend_path();
-    let port = state.configuration.port();
 
     match fs::read_to_string(path).await {
         Ok(contents) => {
             let contents = contents.replace("generic_timeslot_booking_manager_name", &title);
-            let contents = contents.replace("0.0.0.0:PORT", &format!("192.168.0.248:{port}"));
             Ok(Html(contents))
         }
         Err(e) => {

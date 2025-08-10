@@ -40,22 +40,17 @@ My friend is teacher at a high school. For their project week they held some IT-
 ### Docker (recommended)
 
 ```Bash
-$ cd src
 $ docker-compose up
 ```
 
 ### Natively
 
-1) Setup rust
-2) navigate to the rust project: 
-    ``` Bash
-    $ cd src
-    ```
-3) to execute the application enter: 
+1) Setup rust (>= v1.88)
+2) to execute the application enter: 
     ``` Bash
     $ cargo run
     ```
-4) In case you want your timeslots to be persistent you need to provide a postgres database:
+3) In case you want your timeslots to be persistent you need to provide a postgres database:
     - Install Postgres Database and Diesel
     - adapt **.env** file according to your database
     - run migration to configure your database: 
