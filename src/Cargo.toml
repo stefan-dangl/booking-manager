@@ -1,0 +1,34 @@
+[package]
+name = "booking_manager"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+axum = "0.7"
+chrono = { version = "0.4", features = ["serde"] }
+mockall = "0.11"
+serde = { version = "1.0", features = ["derive"] }
+tempfile = "3.20"
+test-case = "3.3"
+tokio = { version = "1.0", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+tower-http = { version = "0.5", features = ["cors"] }
+futures = "0.3"       # For StreamExt and other async helpers
+uuid = { version = "1.0", features = ["v4", "serde"] }
+diesel = { version = "2.1", features = ["chrono", "postgres", "uuid"] }
+dotenvy = "0.15"
+clap = { version = "4.5", features = ["derive"] }
+dotenv = "0.15"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde_json = "1.0"
+validator = { version = "0.20", features = ["derive"] }
+axum-valid = "0.24.0"
+regex = "1.9"
+lazy_static = "1.4"
+
+
+[dev-dependencies]
+hyper = "0.14"
+reqwest = { version = "0.11", features = ["json", "stream"] }
