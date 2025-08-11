@@ -154,14 +154,14 @@ mod test {
     //!  
     //! More information can be found in README.md
 
-    use crate::testutils::read_from_timeslot_stream;
-
     use super::*;
+    use crate::testutils::read_from_timeslot_stream;
     use chrono::Duration;
 
     const TEST_DATABASE_URL: &str = "postgres://username:password@localhost/booking_manager";
 
     #[tokio::test]
+    #[ignore]
     async fn test_add_book_remove_single_timeslot() {
         let database_interface = DatabaseInterface::new(TEST_DATABASE_URL).unwrap();
         let mut timeslot_stream = database_interface.timeslot_stream();
@@ -201,6 +201,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_try_book_outdated_timeslot() {
         let database_interface = DatabaseInterface::new(TEST_DATABASE_URL).unwrap();
         database_interface.remove_all_timeslot().unwrap();
@@ -223,6 +224,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_remove_multiple_timeslots() {
         let database_interface = DatabaseInterface::new(TEST_DATABASE_URL).unwrap();
         database_interface.remove_all_timeslot().unwrap();
@@ -262,6 +264,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_database_persistency() {
         let database_interface = DatabaseInterface::new(TEST_DATABASE_URL).unwrap();
         database_interface.remove_all_timeslot().unwrap();
@@ -295,6 +298,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn cleanup_outdated_timeslots() {
         let database_interface = DatabaseInterface::new(TEST_DATABASE_URL).unwrap();
         database_interface.remove_all_timeslot().unwrap();

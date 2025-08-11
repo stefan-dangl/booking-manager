@@ -9,6 +9,7 @@ My friend is teacher at a high school. During their IT focused project week, the
 This project focuses on:
 - Full control over data (self-hosted)
 - Zero-friction access from any device
+- Seamless updates
 - Just enough features to solve the problem without complexity
 
 
@@ -63,14 +64,14 @@ $ docker-compose up
     ``` Bash
     $ cd src
     ```
-3) To execute the application enter: 
+3) Execute the application: 
     ``` Bash
     $ cargo run
     ```
-4) In case you want your timeslots to be persistent you need to provide a postgres database:
-    - Install Postgres Database and Diesel
-    - adapt **.env** and **src/diesel.toml** file according to your system
-    - run migration to configure your database: 
+4) In case you want your timeslots to be persistent you need to provide a Postgres database:
+    - Install Postgres and Diesel
+    - Adapt the files **.env** and **src/diesel.toml** according to your system
+    - Run migration in the project root to configure your database: 
     ``` Bash
     $ diesel migration run
     ``` 
@@ -89,6 +90,6 @@ $ cargo run -- -h
     - Password
         - When requesting Admin rights, the password specified here has to be entered
     - Database Url and password
-        - In case you want to run the Booking Manager in persistent mode, you can define the url and password of your database here. Alternatively, you can run the Booking Manager without database.
+        - In case you want to run the project in persistent mode, you can define the url and password of your database here. Alternatively, you can run the project without database.
     - Port
-        - Defines on which port the Booking Manager runs
+        - Defines on which port the project runs
