@@ -1,6 +1,14 @@
 # booking-manager
 
-A lightweight, privacy-focused booking system designed for small-scale events. [Try it out](https://booking-manager-latest.onrender.com/)
+A lightweight, privacy-focused booking system designed for small-scale events.
+
+
+## Playground 
+
+You can try out the Booking Manager [here](https://booking-manager-latest.onrender.com/). 
+
+Note: This is a shared demo environment—anyone using this link can view and modify existing timeslots and bookings. To access admin controls, click the "Admin" button and enter the password: ***password***.
+
 
 ## Background
 
