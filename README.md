@@ -1,6 +1,6 @@
 # booking-manager
 
-A lightweight, privacy-focused booking system designed for small-scale events.
+A lightweight, privacy-focused booking system designed for small-scale events. [Try it out](https://booking-manager-latest.onrender.com/)
 
 ## Background
 
