@@ -383,7 +383,7 @@ mod test {
             "get" => client.get(format!("http://{addr}/{path}")),
             "post" => client.post(format!("http://{addr}/{path}")),
             "delete" => client.delete(format!("http://{addr}/{path}")),
-            _ => panic!("Unsupported HTTP method: {}", method),
+            _ => panic!("Unsupported HTTP method: {method}"),
         };
         request_builder = match authorization {
             Authorization::None => request_builder,
@@ -407,7 +407,7 @@ mod test {
 <head><title>Test</title></head>
 <body><h1>Test</h1></body>
 </html>"#;
-        write!(tmp_file, "{}", expected_html).unwrap();
+        write!(tmp_file, "{expected_html}").unwrap();
         *mock_configuration.0.frontend_path.lock().unwrap() = tmp_file.path().to_path_buf();
 
         let client = Client::new();

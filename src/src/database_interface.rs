@@ -177,7 +177,7 @@ mod test {
 
         let current_timeslots = read_from_timeslot_stream(&mut timeslot_stream).await;
         assert_eq!(current_timeslots.len(), 1);
-        assert_eq!(current_timeslots[0].available, true);
+        assert!(current_timeslots[0].available);
         assert_eq!(current_timeslots[0].booker_name, "");
         let new_timeslot_id = current_timeslots[0].id;
 
@@ -187,7 +187,7 @@ mod test {
 
         let current_timeslots = read_from_timeslot_stream(&mut timeslot_stream).await;
         assert_eq!(current_timeslots.len(), 1);
-        assert_eq!(current_timeslots[0].available, false);
+        assert!(!current_timeslots[0].available);
         assert_eq!(current_timeslots[0].booker_name, "Stefan");
         assert_eq!(current_timeslots[0].id, new_timeslot_id);
 

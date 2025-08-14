@@ -1,30 +1,27 @@
 use crate::configuration::Configuration;
 use clap::Parser;
 use dotenvy::dotenv;
-use tracing::info;
 use std::env;
 use std::path::PathBuf;
+use tracing::info;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(short = 't', long = "title", 
-        help = "Website Title")]
+    #[arg(short = 't', long = "title", help = "Website Title")]
     website_title: Option<String>,
 
-    #[arg(short = 'k', long = "key", 
-        help = "Authentication key for API access")]
+    #[arg(short = 'k', long = "key", help = "Authentication key for API access")]
     password: Option<String>,
 
-    #[arg(short = 'p', long = "port", 
-        help = "Port number for the HTTP server")]
+    #[arg(short = 'p', long = "port", help = "Port number for the HTTP server")]
     port: Option<String>,
 
     #[arg(
-        short = 'd', 
+        short = 'd',
         long = "database", 
         default_missing_value = "", 
-        num_args = 0..=1, 
+        num_args = 0..=1,
         help = "Database connection. Without this argument the timeslots are not stored persistently",
     )]
     database_url: Option<String>,
