@@ -1,4 +1,8 @@
+[![CI Status](https://github.com/stefan-dangl/booking-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/stefan-dangl/booking-manager/actions)
+[![Coverage](https://codecov.io/gh/stefan-dangl/booking-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/stefan-dangl/booking-manager)
+
 # booking-manager
+
 
 A lightweight, privacy-focused booking system designed for small-scale events.
 
