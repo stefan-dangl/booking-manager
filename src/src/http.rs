@@ -209,7 +209,6 @@ mod test {
     use crate::types::Timeslot;
     use axum::body::Bytes;
     use axum::http::StatusCode;
-    use mockall::predicate::*;
     use reqwest::{Client, Error};
     use std::io::Write;
     use std::net::SocketAddr;

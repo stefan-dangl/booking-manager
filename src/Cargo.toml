@@ -7,14 +7,13 @@ edition = "2021"
 [dependencies]
 axum = "0.7"
 chrono = { version = "0.4", features = ["serde"] }
-mockall = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 tempfile = "3.20"
 test-case = "3.3"
 tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 tower-http = { version = "0.5", features = ["cors"] }
-futures = "0.3"       # For StreamExt and other async helpers
+futures = "0.3"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 diesel = { version = "2.1", features = ["chrono", "postgres", "uuid"] }
 dotenvy = "0.15"
@@ -30,5 +29,4 @@ lazy_static = "1.4"
 
 
 [dev-dependencies]
-hyper = "0.14"
 reqwest = { version = "0.11", features = ["json", "stream"] }
